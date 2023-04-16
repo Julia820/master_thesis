@@ -1,0 +1,165 @@
+---
+title: "Clustering"
+output: html_document
+date: "2023-04-16"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(DESeq2)
+library(umap)
+library(ggplot2)
+library(dendextend)
+library(egg)
+set.seed(0)
+```
+
+
+```{r}
+load(file = "../results/rld_transformed.RData")
+```
+
+
+```{r pressure, echo=FALSE}
+rv <- rowVars(assay(rld))
+select <- order(rv, decreasing=TRUE)
+rna <- t(assay(rld)[select,])
+```
+
+```{r}
+library(cluster)
+silhouetteVec = rep(0,20)
+wss = rep(0,20)
+
+for(i in 2:20)  {
+  clustering = kmeans(rna, centers = i, iter.max = 50, nstart = 150)
+  silhouetteVec[i] = mean(silhouette(clustering$clust, distMatrix)[,3])
+  wss[i] = clustering$tot.withinss
+  rm(clustering)
+}
+```
+
+```{r}
+ggplot(data.frame(x = 1:20, y = silhouetteVec)) + 
+  geom_line(aes(x, y), color = 'blue') + xlab('Number of groups') + ylab('silhouette width') +
+  ggtitle(paste0("According to the silhouette width, the best clustering is for the division into ", 
+                   which.max(silhouetteVec), " groups."))
+ggsave(file="../plots/silhouette_width.eps", units = "cm")
+```
+
+
+```{r}
+ggplot(data.frame(x = 2:20, y = wss[2:20])) + 
+  geom_line(aes(x, y), color = 'blue') + xlab('Number of groups') + ylab('Total within-clusters sum of squares') 
+ggsave(file="../plots/elbow_method.eps")
+```
+
+```{r}
+distMatrix = dist(rna)
+clustering = kmeans(rna, centers = 3, iter.max = 50, nstart = 150)
+si = silhouette(clustering$clust, distMatrix)
+setEPS()                                           
+postscript("../plots/silhouette.eps")    
+plot(si)
+dev.off()
+```
+
+```{r}
+c <- paste0("Grupa_", clustering$cluster)
+names(c) <- names(clustering$cluster)
+clustering$cluster <- c
+```
+
+```{r}
+write.csv(c, "../results/cluster_info.csv")
+```
+
+
+```{r umap}
+umap.res.rna = umap(rna)
+
+df.rna = data.frame(UMAP1 = umap.res.rna$layout[,1], UMAP2 = umap.res.rna$layout[,2], name = rownames(umap.res.rna$layout),  grupa =  factor(clustering$cluster[match(rownames(umap.res.rna$layout), names(clustering$cluster))]))
+
+x = ggplot() +
+    geom_point(data = df.rna, aes(x = UMAP1, y = UMAP2, color = grupa), size = 3)
+x
+ggsave(file="../plots/umap.eps")
+```
+
+```{r PCA}
+pca = prcomp(rna)
+  
+df = data.frame(PC1 = pca$x[,"PC1"], PC2 = pca$x[,"PC2"],
+                type = factor(clustering$cluster[match(rownames(pca$x), names(clustering$cluster))]),
+                name = rownames(pca$x))
+
+x2 = ggplot() +
+    geom_point(data = df, aes(x = PC1, y = PC2, color = type), size = 3)+
+  labs(x = paste0("PC1: ",round(summary(pca)$importance[2,][1]*100), "%"),
+       y = paste0("PC2: ",round(summary(pca)$importance[2,][2]*100), "%"))
+x2
+ggsave(file="../plots/pca.eps")
+```
+
+```{r}
+rld$condition <- clustering$cluster[match(rld$samp_id, names(clustering$cluster))]
+save(file = "../results/rld_transformed.RData")
+load("../results/dds.RData")
+dds$condition <- clustering$cluster[match(dds$samp_id, names(clustering$cluster))]
+save(dds, "../results/dds.RData")
+```
+
+```{r}
+coldata <- read.csv("../results/cluster_info.csv")
+cols = setNames(RColorBrewer::brewer.pal(12, "Paired")[c(2,4,6)], unique(coldata$Grupa))
+coldata$color = cols[coldata$Grupa]
+```
+
+
+```{r}
+pl = list()
+clust = hclust(dist(rna, method = "euclidean"), method = "complete")
+  
+p = as.dendrogram(clust, hang = 0.1)
+
+p <- as.ggdend(p)
+
+p$labels$col = coldata[match(p$labels$label, coldata$samp_id),"color"]
+
+x = ggplot(p) + ylim(-0.45*max(p$nodes$y), NA) + labs(title = "Hierarchical clustering", subtitle = "Methods: distance euclidean, agglomeration complete")
+
+pl[["C1"]] = x
+
+clust = hclust(dist(rna, method = "manhattan"), method = "ward.D")
+
+p = as.dendrogram(clust, hang = 0.1)
+
+p <- as.ggdend(p)
+
+p$labels$col = coldata[match(p$labels$label, coldata$samp_id),"color"]
+
+x = ggplot(p) + ylim(-0.45*max(p$nodes$y), NA) + labs(title = "Hierarchical clustering", subtitle = "Methods: distance Manhattan, agglomeration ward.D")
+
+pl[["C2"]] = x
+
+clust = hclust(dist(rna, method = "canberra"), method = "median")
+
+p = as.dendrogram(clust, hang = 0.3)
+
+p <- as.ggdend(p)
+
+p$labels$col = coldata[match(p$labels$label, coldata$samp_id),"color"]
+
+x = ggplot(p) + ylim(-0.45*max(p$nodes$y), NA) + labs(title = "Hierarchical clustering", subtitle = "Methods: distance Canberra, agglomeration centroid")
+
+pl[["C3"]] = x
+
+plots = ggarrange(pl[["C1"]], pl[["C2"]], pl[["C3"]], ncol = 1)
+plots
+ggsave(file="../plots/dendro.eps", width = 10, height = 8, plot = plots)
+
+```
+

@@ -1,0 +1,178 @@
+---
+title: "enrichment"
+output: html_document
+date: "2023-04-16"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+main_folder <- "results/"
+ddseq_file <- "dds.RData"
+group_1 <- "Grupa_1"
+group_2 <- "Grupa_2"
+folder <-paste0(group_1, "_", group_2)
+```
+
+
+# GO term enrichemnt
+
+```{r}
+library(goseq)
+```
+
+```{r cars}
+table_all <- read.csv(file = paste0(main_folder, folder, group_1, group_2, "DA_0_05.csv"))
+table_all <- table_all[!is.na(table_all$padj), ]
+df <- data.frame(x = table_all$X)
+df <- df %>% extract(x,"A")
+row.names(table_all) <- df$A
+head(table_all)
+```
+
+
+
+```{r pressure, echo=FALSE}
+genes2 <- as.integer(table_all$padj<0.05)
+names(genes2) = row.names(table_all)
+table(genes2)
+```
+
+
+```{r}
+pwf=nullp(genes2,"hg19","ensGene")
+head(pwf)
+```
+
+```{r}
+GO.wall=goseq(pwf,"hg19","ensGene")
+
+GO.wall %>% 
+    top_n(20, wt=-over_represented_pvalue) %>% 
+    mutate(hitsPerc=numDEInCat*100/numInCat) %>% 
+    ggplot(aes(x=hitsPerc, 
+               y=term, 
+               colour=over_represented_pvalue, 
+               size=numDEInCat)) +
+        geom_point() +
+        expand_limits(x=0) +
+        labs(x="Hits (%)", y="GO term", colour="p value", size="Count")
+ggsave(file=paste0("../plots/go_analysis.eps"))
+```
+
+
+
+# GSEA
+
+```{r cars}
+db <- "c5.go.bp.v2022.1.Hs.entrez.gmt"
+db_name <- "GO_term"
+```
+
+
+```{r}
+library(fgsea)
+library(data.table)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(biomaRt)
+library(httr)
+library(ggplot2)
+library(forcats)
+httr::set_config(config(ssl_verifypeer = 0L))
+```
+
+
+```{r}
+rank <- read.csv(file = paste0(main_folder, folder, group_1, group_2, "DA_0_05.csv"))
+rank <- rank[order(rank$log2FoldChange),] 
+rank_ensembl <- rank$X
+
+
+
+mart <- useEnsembl("ensembl","hsapiens_gene_ensembl", mirror = "useast")
+G_list <- getBM(filters= "ensembl_gene_id", attributes= c("ensembl_gene_id",
+                                                          "hgnc_symbol"),
+                values=rank_ensembl, mart= mart)
+
+rank_id <- as.character(G_list[match(rank_ensembl, G_list$ensembl_gene_id), 'hgnc_symbol'])
+rank_id_val  <- rank$log2FoldChange
+names(rank_id_val) <- rank_id
+rank_id_val <- rank_id_val[!is.na(names(rank_id_val))]
+rank_id_val <- rank_id_val[!duplicated(names(rank_id_val))]
+
+gmt.file <- system.file("extdata", db, package="fgsea")
+pathways <- gmtPathways(gmt.file)
+
+print(head(rank_id_val))
+print(tail(rank_id_val))
+fgseaRes <- fgsea(pathways, rank_id_val, maxSize=500)
+fgseaRes <- fgseaRes[order(padj), ]
+fwrite(fgseaRes, file=paste0(main_folder, folder, group_1, group_2, "_", db_name ,"_GSEA.csv"), sep=",", sep2=c("", " ", ""))
+```
+
+```{r}
+w <- 6.5
+h <- 5
+
+folders <- list('GIPR_p_h/'='GIPR_pGIPR_h',
+                'GIPR_p_l/'='GIPR_pGIPR_l',
+                'GIPR_h_l/'='GIPR_hGIPR_l')
+groups <- c('GIPR_pGIPR_h', 'GIPR_pGIPR_l', 'GIPR_hGIPR_l')
+
+topPathways_all <-NULL
+df_list <- list(1,2,3)
+
+
+for(i in seq_along(folders)){
+  print(paste(i,names(folders)[i],folders[[i]]))
+  gsea <- read.csv(paste0(main_folder, names(folders)[i],
+                            folders[[i]], "_", db_name ,
+                            "_GSEA.csv"), sep="\t")
+  
+  df_list[[i]] <- gsea
+  names(df_list)[i] <- folders[[i]]
+  gsea <- gsea[gsea$padj < 0.05, ]
+  
+  topPathways <- gsea[head(order(gsea$padj), n=10), 'pathway']
+  topPathways_all <-c(topPathways_all,topPathways)
+  
+}
+
+topPathways_all
+```
+
+```{r}
+df = NULL
+df_names <- c('Grupa 1 vs 2', 'Grupa 1 vs 3', 'Grupa 2 vs 3')
+for(i in 1:3){
+  g <- df_list[[i]]
+
+  d <- g[g$pathway %in% topPathways_all,]
+
+  d$sample <- df_names[i]
+
+  df <- rbind(df,d)
+}
+head(df)
+scale = c(1, 10, 100, 1000, 10000)
+
+df %>%
+  mutate(pathway = fct_reorder(pathway, NES)) %>%
+  ggplot(aes(x=sample,
+             y=pathway,
+             colour=NES,
+             size=1/padj)) +
+  geom_point() +
+  labs(y= paste(db_name_plot, "term"), x='', colour="NES", size="Adj. p-value")  +
+  scale_size(labels=1/scale,breaks=scale,trans = 'log10') +
+  scale_color_gradient2(low="blue", mid="white", high="red", space ="Lab" ) #+
+
+ggsave(file=paste0("/home/juliarymuza/Dokumenty/rna_seq/eps/gsea_", db_name,'_', mode, '_', type, '.eps'), width=w, height=h)
+
+
+```
+

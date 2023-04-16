@@ -1,0 +1,132 @@
+---
+title: "DE"
+output: html_document
+date: "2023-04-16"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+library(DESeq2)
+library(stringr)
+library(ggplot2)
+library(ggrepel)
+library(factoextra)
+library(dplyr)
+library(tidyr)
+```
+
+```{r}
+main_folder <- "results/"
+ddseq_file <- "dds.RData"
+group_1 <- "Grupa_1"
+group_2 <- "Grupa_2"
+folder <-paste0(group_1, "_", group_2)
+```
+
+
+```{r}
+
+
+load(file = paste0(main_folder, ddseq_file))
+
+res <- results(dds, contrast=c('condition', group_1, group_2))
+
+resOrdered <- res[order(res$pvalue),]
+
+print(paste('Gens with p-value < 0.05',sum(res$padj < 0.05, na.rm=TRUE)))
+
+write.csv(as.data.frame(resOrdered), 
+          file= paste0(main_folder, folder, group_1, group_2, "DA_all.csv"))
+```
+
+
+```{r}
+resSig <- subset(resOrdered, padj < 0.05)
+write.csv(as.data.frame(resSig), 
+          file=paste0(main_folder, folder, group_1, group_2, "DA_0_05.csv"))
+
+
+```
+
+
+```{r}
+table_all = read.csv(file=paste0(main_folder, folder, group_1, group_2, "DA_0_05.csv"))
+table_all <- table_all[!is.na(table_all$padj), ]
+df <- data.frame(x = table_all$X)
+df <- df %>% extract(x,"A")
+row.names(table_all) <- df$A
+print(head(table_all))
+library('biomaRt')
+
+library(httr)
+httr::set_config(config(ssl_verifypeer = 0L))
+mart <- useEnsembl("ensembl","hsapiens_gene_ensembl", mirror = "useast")
+genes <- row.names(table_all)
+G_list <- getBM(filters= "ensembl_gene_id", attributes= c("ensembl_gene_id",
+                                                          "hgnc_symbol", "description", 'transcript_mane_select'),values=genes,mart= mart)
+
+df<- G_list
+df = df[order(df[,'ensembl_gene_id'],df[,'transcript_mane_select'], decreasing = TRUE),]
+df = df[!duplicated(df$ensembl_gene_id),]
+
+table <- df
+table_out <- cbind(table, table_all[table$ensembl_gene_id,])
+table_out <- table_out[order(table_out$padj),]
+write.csv(table_out, 
+          file=paste0(main_folder, folder, group_1, group_2, "DA_0_05_names_ref_seq.csv"))
+```
+
+```{r}
+library(ggrepel)
+
+plot_volcano <- function(main_folder, folder, group_1, group_2){
+  da <- read.csv(file=paste0(main_folder, folder, group_1, group_2, "DA_all.csv"))
+  da <- da %>% 
+  mutate(
+    Expression = case_when(log2FoldChange >= log(2) & padj <= 0.05 ~ "Up-regulated",
+                           log2FoldChange <= -log(2) & padj <= 0.05 ~ "Down-regulated",
+                           TRUE ~ "Unchanged")
+    )
+  
+  top <- 10
+  top_genes <- bind_rows(
+   da %>%
+     filter(Expression == 'Up-regulated') %>%
+     arrange(padj, desc(abs(log2FoldChange))) %>%
+     head(top),
+   da %>%
+     filter(Expression == 'Down-regulated') %>%
+
+     arrange(padj, desc(abs(log2FoldChange))) %>%
+     head(top)
+  )
+  top_genes$X <- simp_ensemble(top_genes$X)
+  g_list <- get_gen_names(top_genes$X)
+  top_genes$hgnc <- g_list[match(top_genes$X,  g_list$ensembl_gene_id), 'hgnc_symbol']
+  
+  p1 <- ggplot(da, aes(log2FoldChange, -log(padj,10))) + # -log10 conversion  
+  geom_point(aes(color = Expression), size = 2/5) +
+  xlab(expression("log"[2]*"FC")) + 
+  ylab(expression("-log"[10]*"padj")) +
+  scale_color_manual(values = c("dodgerblue3", "gray50", "firebrick3")) +
+  guides(colour = guide_legend(override.aes = list(size=1.5))) +
+    theme(panel.background = element_blank()) +
+   theme(axis.line = element_line(colour = "grey50")) + theme(legend.position="none")
+  return(p1)
+}
+```
+
+```{r}
+plot_volcano(main_folder, folder, group_1, group_2)
+ggsave(file=paste0("../eps/", group_1, group_2, '_volcano_plot_no_label.eps'), width = 6, height = 4)
+```
+

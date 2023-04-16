@@ -1,0 +1,72 @@
+---
+title: "microenvironment"
+output: html_document
+date: "2023-04-16"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(immunedeconv)
+library(biomaRt)
+library(dplyr)
+library(tidyr)
+```
+
+```{r}
+load(file = 'three_cluster_coding/dds.RData')
+rna_org <- counts(dds, normalized = T)
+pasAnno <- "/home/juliarymuza/Dokumenty/rna_seq/id_info_rna_klaster.csv"
+coldata <- read.csv(pasAnno)
+rna <- read.csv('/media/juliarymuza/30802472802440A8/rna_seq/ALL_TPM.csv')
+rna <- rna[rna$Gene_Id %in% row.names(rna_org),]
+```
+
+
+```{r}
+row.names(rna) <- simp_ensemble(rna$Gene_Id)
+rna <- rna[ , -which(names(rna) %in% c('Gene_Id'))]
+```
+
+
+```{r}
+
+library(httr)
+httr::set_config(config(ssl_verifypeer = 0L))
+mart <- useEnsembl("ensembl","hsapiens_gene_ensembl", mirror = "useast")
+genes_hgnc <- getBM(attributes= c("ensembl_gene_id","hgnc_symbol"), mart= mart)
+``` 
+
+
+```{r}
+rna_m <- as.matrix(rna)
+row.names(rna_m) <- genes_hgnc[match(row.names(rna_m), genes_hgnc$ensembl_gene_id), "hgnc_symbol"]
+rna_m <- rowsum(rna_m, row.names(rna_m))
+```
+
+
+
+```{r}
+res = deconvolute(rna_m, "epic")
+colnames(res) <- sub("X", "", colnames(res))
+```
+
+```{r}
+epic_df <- read.csv('epic_res.csv')
+colnames(epic_df)<-gsub("X","",colnames(epic_df))
+epic_df <- epic_df[,c('cell_type',id_tab$samp_id)]
+epic_df <- epic_df[1:7,]
+epic_df <- melt(epic_df)
+colnames(epic_df) <- c('cell_type', 'samp_id', 'value')
+epic_df <- merge(epic_df, id_tab, by='samp_id')
+colnames(epic_df)[colnames(epic_df) == 'artykul'] <- 'Cluster'
+head(epic_df)
+ggplot(epic_df, aes(x=samp_id,
+             y=cell_type,
+             color=Cluster,
+             size=value)) +
+  geom_point() + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+ggsave(file="../plots/immuno.eps", width = 30, height = 10, units = "cm")
+```

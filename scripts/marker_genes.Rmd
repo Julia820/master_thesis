@@ -1,0 +1,169 @@
+---
+title: "marker_genes"
+output: html_document
+date: "2023-04-16"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r cars}
+library(MGFR)
+library(DESeq2)
+```
+
+```{r}
+load(file = '../three_cluster_coding/dds.RData')
+rna <- counts(dds, normalized = T)
+pasAnno <- "/home/juliarymuza/Dokumenty/id_info_rna_klaster.csv"
+coldata <- read.csv(pasAnno)
+row.names(rna) <- simp_ensemble(row.names(rna))
+```
+
+```{r}
+classes <- coldata[match(colnames(rna), coldata$samp_id), "rna_3_claster"]
+```
+
+
+```{r}
+markers.list <- getMarkerGenes.rnaseq(rna, class.vec = classes, annotate =T)
+```
+
+```{r}
+markers.list[["GIPR_h_markers"]]
+markers.list[["GIPR_p_markers"]]
+markers.list[["GIPR_l_markers"]]
+```
+
+```{r}
+markers.list[["GIPR_h_markers"]]
+markers.list[["GIPR_l_markers"]]
+```
+
+```{r}
+library(scran)
+```
+
+```{r}
+out <- findMarkers(rna, classes, test.type='t')
+```
+
+```{r}
+library(ROCR)
+calc_auc <- function(x){
+  test_class <- numeric(length(x))
+  test_class[classes==g] <- 1
+  pred_object<-prediction(x, test_class)
+  auc.perf = performance(pred_object, measure = "auc")
+  return(auc.perf@y.values[[1]][1])
+}
+```
+
+```{r}
+library(ROCR)
+calc_auc_dif <- function(x){
+  test_class <- numeric(length(x))
+  test_class[classes!=g] <- 1
+  pred_object<-prediction(x, test_class)
+  auc.perf = performance(pred_object, measure = "auc")
+  return(auc.perf@y.values[[1]][1])
+}
+```
+
+
+```{r}
+calc_auc(rna['ENSG00000074964',])
+```
+
+```{r}
+library(ggplot2)
+test_class <- numeric(48)
+test_class[classes=="GIPR_l"] <- 1
+df <- data.frame(val = rna['ENSG00000171488',], clas = test_class)
+g1<-ggplot(df, aes(x=val,group=clas,fill=clas))+geom_density(trim = TRUE, alpha = .5)
+g1
+```
+
+```{r}
+library(ROCR)
+library(ggplot2)
+x <- rna['ENSG00000100934',]
+g <- 'GIPR_l'
+test_class <- numeric(length(x))
+test_class[classes==g] <- 1
+pred<-prediction(x, test_class)
+perf <- performance(pred,"tpr", "fpr")
+auc <- performance(pred, measure = "auc")@y.values[[1]]
+rd <- data.frame(x=perf@x.values[[1]],y=perf@y.values[[1]])
+p <- ggplot(rd,aes(x=x,y=y)) + geom_path(size=1) + 
+  geom_text(aes(x=0.75, y= 0.25, hjust=0.1, vjust=0, label=paste(sep = "", "AUC = ",round(auc,3) )),colour="black",size=4)+
+  scale_x_continuous(name= "False positive rate")+
+  scale_y_continuous(name= "True positive rate") + ggtitle("SEC23A")
+
+ggsave(p, filename = "../eps/roc_SEC23A.eps", width = 4, height = 4)
+
+```
+
+```{r}
+library(ROCR)
+x <- rna['ENSG00000118971',]
+g <- 'GIPR_l'
+test_class <- numeric(length(x))
+test_class[classes!=g] <- 1
+pred<-prediction(x, test_class)
+perf <- performance(pred,"tpr", "fpr")
+auc <- performance(pred, measure = "auc")@y.values[[1]]
+rd <- data.frame(x=perf@x.values[[1]],y=perf@y.values[[1]])
+p <- ggplot(rd,aes(x=x,y=y)) + geom_path(size=1) + 
+  geom_text(aes(x=0.75, y= 0.25, hjust=0.1, vjust=0, label=paste(sep = "", "AUC = ",round(auc,3) )),colour="black",size=4)
+p <- p + scale_x_continuous(name= "False positive rate")
+p <- p + scale_y_continuous(name= "True positive rate") + ggtitle("CCND2")
+p 
+ggsave(p, filename = "../eps/roc_CCND2.eps", width = 4, height = 4)
+```
+
+```{r}
+x <- rna['ENSG00000136931',]
+g <- 'GIPR_p'
+test_class <- numeric(length(x))
+test_class[classes==g] <- 1
+pred<-prediction(x, test_class)
+perf <- performance(pred,"tpr", "fpr")
+auc <- performance(pred, measure = "auc")@y.values[[1]]
+rd <- data.frame(x=perf@x.values[[1]],y=perf@y.values[[1]])
+p <- ggplot(rd,aes(x=x,y=y)) + geom_path(size=1) + 
+  geom_text(aes(x=0.75, y= 0.25, hjust=0.1, vjust=0, label=paste(sep = "", "AUC = ",round(auc,3) )),colour="black",size=4)
+p <- p + scale_x_continuous(name= "False positive rate")
+p <- p + scale_y_continuous(name= "True positive rate") + ggtitle("NR5A1")
+p 
+ggsave(p, filename = "../eps/roc_NR5A1.eps", width = 4, height = 4)
+```
+
+```{r}
+g='GIPR_l'
+auc_l <- apply(rna, 1, calc_auc)
+auc_p_h <- apply(rna, 1, calc_auc_dif)
+g='GIPR_p'
+auc_p <- apply(rna, 1, calc_auc)
+g='GIPR_h'
+auc_h <- apply(rna, 1, calc_auc)
+combine <- data.frame('ensembl'= row.names(rna), 'auc_h'= auc_h, 'auc_p'= auc_p, 'auc_l'= auc_l, 'auc_p_h'=auc_p_h)
+```
+
+```{r}
+library(biomaRt)
+mart <- useDataset("hsapiens_gene_ensembl", useMart("ensembl"))
+G_list <- getBM(filters= "ensembl_gene_id", attributes= c("ensembl_gene_id",
+                                                          "hgnc_symbol"),
+                values=rownames(combine), mart= mart)
+```
+
+```{r}
+combine$hgnc <- G_list[match(combine$ensembl, G_list$ensembl_gene_id), "hgnc_symbol"]
+```
+
+```{r}
+write.csv(combine, file="three_cluster_coding/roc_deseq_norm_2.csv")
+```

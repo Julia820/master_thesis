@@ -1,0 +1,96 @@
+---
+title: "prepossessing"
+output: html_document
+date: "2023-04-16"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Loading libraries:
+
+```{r cars}
+library(DESeq2)
+library(stringr)
+library(dplyr)
+library(tidyr)
+library(biomaRt)
+```
+
+Helper function for data cleanup:
+
+```{r pressure, echo=FALSE}
+simple <- function(x){
+  p <- str_split(x, '_mapped')
+  p <- str_split(p[[1]][1], 'mapped.')
+  return (p[[1]][2])
+}
+
+simp_ensemble <- function(col){
+  df <- data.frame(x = col)
+  df <- df %>% extract(x,"A")
+  return(df$A)
+}
+```
+
+Reading in informations about samples.
+
+```{r}
+pasAnno <- "../id_info.csv"
+coldata <- read.csv(pasAnno, header = TRUE)
+coldata <- coldata[order(coldata$mut_stat),]
+rownames(coldata) <- coldata$samp_id
+head(coldata)
+```
+
+Reading in output of featureCounts.
+
+```{r}
+pasCts <-"../counta_all_out.tsv"
+cts <- as.matrix(read.csv(pasCts,sep="\t", skip = 1, row.names = 'Geneid'))
+cts <- cts[,c(6:ncol(cts))]
+```
+
+Simplifying gene names.
+
+```{r}
+col_names<-colnames(cts)
+simp_col_names <- sapply(col_names, simple)
+colnames(cts) <- as.vector(simp_col_names)
+cts <- matrix(as.numeric(cts), ncol = ncol(cts), dimnames = list(rownames(cts), colnames(cts)))
+```
+
+Filtering out noncoding gens.
+
+```{r}
+library(httr)
+httr::set_config(config(ssl_verifypeer = 0L))
+mart <- useDataset("hsapiens_gene_ensembl", useMart("ensembl"))
+genes <- getBM(attributes= c("ensembl_gene_id",
+                             "transcript_biotype"), filters = c("transcript_biotype"), values = list("protein_coding"), mart= mart)
+
+cts_coding <- cts[simp_ensemble(rownames(cts)) %in% genes$ensembl_gene_id,]
+```
+
+Creating DESeq object and filtering gens that has low counts in over 25% of samples. Conducting gen count normalization and transformation. 
+
+```{r}
+print(all(rownames(coldata) %in% colnames(cts_coding )))
+print(all(rownames(coldata) == colnames(cts_coding )))
+cts_coding  <- cts_coding[, rownames(coldata)]
+print(all(rownames(coldata) == colnames(cts_coding)))
+
+dds <- DESeqDataSetFromMatrix(countData = cts_coding,
+                              colData = coldata,
+                              design = ~1)
+
+keep = rowSums(counts(dds) >5) > 0.25*dim(dds)[2]
+dds <- dds[keep,]
+dds <- DESeq(dds)
+save(dds, "../results/dds.RData")
+print(dds)
+rld <- rlog(dds, blind=FALSE)
+save(rld, "../results/rld_transformed.RData")
+```
+
