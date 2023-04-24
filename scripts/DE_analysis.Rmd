@@ -8,11 +8,7 @@ date: "2023-04-16"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+Laoding libaraies:
 
 ```{r cars}
 library(DESeq2)
@@ -24,6 +20,8 @@ library(dplyr)
 library(tidyr)
 ```
 
+Defining analysis parameters:
+
 ```{r}
 main_folder <- "results/"
 ddseq_file <- "dds.RData"
@@ -32,6 +30,7 @@ group_2 <- "Grupa_2"
 folder <-paste0(group_1, "_", group_2)
 ```
 
+Looking for DE genes:
 
 ```{r}
 
@@ -48,6 +47,7 @@ write.csv(as.data.frame(resOrdered),
           file= paste0(main_folder, folder, group_1, group_2, "DA_all.csv"))
 ```
 
+Saving result:
 
 ```{r}
 resSig <- subset(resOrdered, padj < 0.05)
@@ -57,6 +57,7 @@ write.csv(as.data.frame(resSig),
 
 ```
 
+Adding biological information to DEG with p-value < 0.05:
 
 ```{r}
 table_all = read.csv(file=paste0(main_folder, folder, group_1, group_2, "DA_0_05.csv"))
@@ -84,6 +85,8 @@ table_out <- table_out[order(table_out$padj),]
 write.csv(table_out, 
           file=paste0(main_folder, folder, group_1, group_2, "DA_0_05_names_ref_seq.csv"))
 ```
+
+Making vulcano plot of the results:
 
 ```{r}
 library(ggrepel)

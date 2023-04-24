@@ -8,6 +8,8 @@ date: "2023-04-16"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+Lading libraries: 
+
 ```{r}
 library(immunedeconv)
 library(biomaRt)
@@ -15,12 +17,14 @@ library(dplyr)
 library(tidyr)
 ```
 
+Reading in data:
+
 ```{r}
 load(file = 'three_cluster_coding/dds.RData')
 rna_org <- counts(dds, normalized = T)
-pasAnno <- "/home/juliarymuza/Dokumenty/rna_seq/id_info_rna_klaster.csv"
+pasAnno <- "../data/id_info_rna_klaster.csv"
 coldata <- read.csv(pasAnno)
-rna <- read.csv('/media/juliarymuza/30802472802440A8/rna_seq/ALL_TPM.csv')
+rna <- read.csv('../data/ALL_TPM.csv')
 rna <- rna[rna$Gene_Id %in% row.names(rna_org),]
 ```
 
@@ -46,12 +50,14 @@ row.names(rna_m) <- genes_hgnc[match(row.names(rna_m), genes_hgnc$ensembl_gene_i
 rna_m <- rowsum(rna_m, row.names(rna_m))
 ```
 
-
+Running analysis:
 
 ```{r}
 res = deconvolute(rna_m, "epic")
 colnames(res) <- sub("X", "", colnames(res))
 ```
+
+Saving results as plot:
 
 ```{r}
 epic_df <- read.csv('epic_res.csv')
@@ -68,5 +74,5 @@ ggplot(epic_df, aes(x=samp_id,
              color=Cluster,
              size=value)) +
   geom_point() + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-ggsave(file="../plots/immuno.eps", width = 30, height = 10, units = "cm")
+ggsave(file="../results/immuno.eps", width = 30, height = 10, units = "cm")
 ```

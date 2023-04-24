@@ -8,11 +8,14 @@ date: "2023-04-16"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+Loading libraries:
 
-```{r cars}
+```{r}
 library(MGFR)
 library(DESeq2)
 ```
+
+Reading in data:
 
 ```{r}
 load(file = '../three_cluster_coding/dds.RData')
@@ -26,6 +29,7 @@ row.names(rna) <- simp_ensemble(row.names(rna))
 classes <- coldata[match(colnames(rna), coldata$samp_id), "rna_3_claster"]
 ```
 
+Looking for Marker genes:
 
 ```{r}
 markers.list <- getMarkerGenes.rnaseq(rna, class.vec = classes, annotate =T)
@@ -49,6 +53,8 @@ library(scran)
 ```{r}
 out <- findMarkers(rna, classes, test.type='t')
 ```
+
+Using AUC analysis to find marker genes:
 
 ```{r}
 library(ROCR)
@@ -102,7 +108,7 @@ p <- ggplot(rd,aes(x=x,y=y)) + geom_path(size=1) +
   scale_x_continuous(name= "False positive rate")+
   scale_y_continuous(name= "True positive rate") + ggtitle("SEC23A")
 
-ggsave(p, filename = "../eps/roc_SEC23A.eps", width = 4, height = 4)
+ggsave(p, filename = "../results/roc_SEC23A.eps", width = 4, height = 4)
 
 ```
 
@@ -121,7 +127,7 @@ p <- ggplot(rd,aes(x=x,y=y)) + geom_path(size=1) +
 p <- p + scale_x_continuous(name= "False positive rate")
 p <- p + scale_y_continuous(name= "True positive rate") + ggtitle("CCND2")
 p 
-ggsave(p, filename = "../eps/roc_CCND2.eps", width = 4, height = 4)
+ggsave(p, filename = "../results/roc_CCND2.eps", width = 4, height = 4)
 ```
 
 ```{r}
@@ -138,7 +144,7 @@ p <- ggplot(rd,aes(x=x,y=y)) + geom_path(size=1) +
 p <- p + scale_x_continuous(name= "False positive rate")
 p <- p + scale_y_continuous(name= "True positive rate") + ggtitle("NR5A1")
 p 
-ggsave(p, filename = "../eps/roc_NR5A1.eps", width = 4, height = 4)
+ggsave(p, filename = "../results/roc_NR5A1.eps", width = 4, height = 4)
 ```
 
 ```{r}
@@ -149,7 +155,7 @@ g='GIPR_p'
 auc_p <- apply(rna, 1, calc_auc)
 g='GIPR_h'
 auc_h <- apply(rna, 1, calc_auc)
-combine <- data.frame('ensembl'= row.names(rna), 'auc_h'= auc_h, 'auc_p'= auc_p, 'auc_l'= auc_l, 'auc_p_h'=auc_p_h)
+combine <- data.frame('ensembl'= row.names(rna), 'auc_h'= auc_h, 'auc_p'= auc_p, 'auc_l'= auc_l)
 ```
 
 ```{r}
@@ -165,5 +171,5 @@ combine$hgnc <- G_list[match(combine$ensembl, G_list$ensembl_gene_id), "hgnc_sym
 ```
 
 ```{r}
-write.csv(combine, file="three_cluster_coding/roc_deseq_norm_2.csv")
+write.csv(combine, file="../results/roc_deseq_norm.csv")
 ```

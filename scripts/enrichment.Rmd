@@ -8,9 +8,11 @@ date: "2023-04-16"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+Seting analysis parameters:
+
 ```{r}
-main_folder <- "results/"
-ddseq_file <- "dds.RData"
+main_folder <- "../results/"
+ddseq_file <- "../resutls/dds.RData"
 group_1 <- "Grupa_1"
 group_2 <- "Grupa_2"
 folder <-paste0(group_1, "_", group_2)
@@ -19,12 +21,15 @@ folder <-paste0(group_1, "_", group_2)
 
 # GO term enrichemnt
 
+Loading library:
 ```{r}
 library(goseq)
 ```
 
+Reading in data:
+
 ```{r cars}
-table_all <- read.csv(file = paste0(main_folder, folder, group_1, group_2, "DA_0_05.csv"))
+table_all <- read.csv(file = paste0(main_folder, folder, group_1, group_2, "DA_all.csv"))
 table_all <- table_all[!is.na(table_all$padj), ]
 df <- data.frame(x = table_all$X)
 df <- df %>% extract(x,"A")
@@ -32,7 +37,7 @@ row.names(table_all) <- df$A
 head(table_all)
 ```
 
-
+Checking which genes were DE:
 
 ```{r pressure, echo=FALSE}
 genes2 <- as.integer(table_all$padj<0.05)
@@ -40,13 +45,12 @@ names(genes2) = row.names(table_all)
 table(genes2)
 ```
 
+Running analysis:
 
 ```{r}
 pwf=nullp(genes2,"hg19","ensGene")
 head(pwf)
-```
 
-```{r}
 GO.wall=goseq(pwf,"hg19","ensGene")
 
 GO.wall %>% 
@@ -66,11 +70,13 @@ ggsave(file=paste0("../plots/go_analysis.eps"))
 
 # GSEA
 
+Setting analysis parameters:
 ```{r cars}
 db <- "c5.go.bp.v2022.1.Hs.entrez.gmt"
 db_name <- "GO_term"
 ```
 
+Loading libraries:
 
 ```{r}
 library(fgsea)
@@ -85,6 +91,7 @@ library(forcats)
 httr::set_config(config(ssl_verifypeer = 0L))
 ```
 
+Running analysis:
 
 ```{r}
 rank <- read.csv(file = paste0(main_folder, folder, group_1, group_2, "DA_0_05.csv"))
@@ -113,6 +120,8 @@ fgseaRes <- fgsea(pathways, rank_id_val, maxSize=500)
 fgseaRes <- fgseaRes[order(padj), ]
 fwrite(fgseaRes, file=paste0(main_folder, folder, group_1, group_2, "_", db_name ,"_GSEA.csv"), sep=",", sep2=c("", " ", ""))
 ```
+
+Choosing significant terms:
 
 ```{r}
 w <- 6.5
@@ -145,6 +154,8 @@ for(i in seq_along(folders)){
 topPathways_all
 ```
 
+Making a plot of results:
+
 ```{r}
 df = NULL
 df_names <- c('Grupa 1 vs 2', 'Grupa 1 vs 3', 'Grupa 2 vs 3')
@@ -171,7 +182,7 @@ df %>%
   scale_size(labels=1/scale,breaks=scale,trans = 'log10') +
   scale_color_gradient2(low="blue", mid="white", high="red", space ="Lab" ) #+
 
-ggsave(file=paste0("/home/juliarymuza/Dokumenty/rna_seq/eps/gsea_", db_name,'_', mode, '_', type, '.eps'), width=w, height=h)
+ggsave(file=paste0("../results/gsea_", db_name,'_', mode, '_', type, '.eps'), width=w, height=h)
 
 
 ```

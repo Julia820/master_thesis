@@ -61,7 +61,7 @@ colnames(cts) <- as.vector(simp_col_names)
 cts <- matrix(as.numeric(cts), ncol = ncol(cts), dimnames = list(rownames(cts), colnames(cts)))
 ```
 
-Filtering out noncoding gens.
+Filtering out non-coding gens.
 
 ```{r}
 library(httr)

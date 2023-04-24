@@ -18,16 +18,21 @@ set.seed(0)
 ```
 
 
+Loading data:
+
 ```{r}
 load(file = "../results/rld_transformed.RData")
 ```
 
+Ordering genes by variance:
 
 ```{r pressure, echo=FALSE}
 rv <- rowVars(assay(rld))
 select <- order(rv, decreasing=TRUE)
 rna <- t(assay(rld)[select,])
 ```
+
+Using k-means clustering with different number of clusters:
 
 ```{r}
 library(cluster)
@@ -42,6 +47,8 @@ for(i in 2:20)  {
 }
 ```
 
+Ploting silhouette width:
+
 ```{r}
 ggplot(data.frame(x = 1:20, y = silhouetteVec)) + 
   geom_line(aes(x, y), color = 'blue') + xlab('Number of groups') + ylab('silhouette width') +
@@ -49,13 +56,15 @@ ggplot(data.frame(x = 1:20, y = silhouetteVec)) +
                    which.max(silhouetteVec), " groups."))
 ggsave(file="../plots/silhouette_width.eps", units = "cm")
 ```
-
+Using elbow method to find the best number od clusters:
 
 ```{r}
 ggplot(data.frame(x = 2:20, y = wss[2:20])) + 
   geom_line(aes(x, y), color = 'blue') + xlab('Number of groups') + ylab('Total within-clusters sum of squares') 
 ggsave(file="../plots/elbow_method.eps")
 ```
+
+Assessing clustring for best number of clusters, that is equal 3:
 
 ```{r}
 distMatrix = dist(rna)
@@ -67,16 +76,16 @@ plot(si)
 dev.off()
 ```
 
+Saving cluster informations:
+
 ```{r}
 c <- paste0("Grupa_", clustering$cluster)
 names(c) <- names(clustering$cluster)
 clustering$cluster <- c
-```
-
-```{r}
 write.csv(c, "../results/cluster_info.csv")
 ```
 
+Visualizing sample clustering with UMPA:
 
 ```{r umap}
 umap.res.rna = umap(rna)
@@ -88,6 +97,8 @@ x = ggplot() +
 x
 ggsave(file="../plots/umap.eps")
 ```
+
+Visualizing sample clustering with PCA:
 
 ```{r PCA}
 pca = prcomp(rna)
@@ -104,6 +115,8 @@ x2
 ggsave(file="../plots/pca.eps")
 ```
 
+Adding information about cluster to DESeq object:
+
 ```{r}
 rld$condition <- clustering$cluster[match(rld$samp_id, names(clustering$cluster))]
 save(file = "../results/rld_transformed.RData")
@@ -118,6 +131,7 @@ cols = setNames(RColorBrewer::brewer.pal(12, "Paired")[c(2,4,6)], unique(coldata
 coldata$color = cols[coldata$Grupa]
 ```
 
+Using hierachical clustering on data:
 
 ```{r}
 pl = list()
