@@ -86,7 +86,7 @@ write.csv(table_out,
           file=paste0(main_folder, folder, group_1, group_2, "DA_0_05_names_ref_seq.csv"))
 ```
 
-Making vulcano plot of the results:
+Making volcano plot of the results:
 
 ```{r}
 library(ggrepel)
@@ -100,22 +100,6 @@ plot_volcano <- function(main_folder, folder, group_1, group_2){
                            TRUE ~ "Unchanged")
     )
   
-  top <- 10
-  top_genes <- bind_rows(
-   da %>%
-     filter(Expression == 'Up-regulated') %>%
-     arrange(padj, desc(abs(log2FoldChange))) %>%
-     head(top),
-   da %>%
-     filter(Expression == 'Down-regulated') %>%
-
-     arrange(padj, desc(abs(log2FoldChange))) %>%
-     head(top)
-  )
-  top_genes$X <- simp_ensemble(top_genes$X)
-  g_list <- get_gen_names(top_genes$X)
-  top_genes$hgnc <- g_list[match(top_genes$X,  g_list$ensembl_gene_id), 'hgnc_symbol']
-  
   p1 <- ggplot(da, aes(log2FoldChange, -log(padj,10))) + # -log10 conversion  
   geom_point(aes(color = Expression), size = 2/5) +
   xlab(expression("log"[2]*"FC")) + 
@@ -123,13 +107,25 @@ plot_volcano <- function(main_folder, folder, group_1, group_2){
   scale_color_manual(values = c("dodgerblue3", "gray50", "firebrick3")) +
   guides(colour = guide_legend(override.aes = list(size=1.5))) +
     theme(panel.background = element_blank()) +
-   theme(axis.line = element_line(colour = "grey50")) + theme(legend.position="none")
+   theme(axis.line = element_line(colour = "grey50")) 
   return(p1)
 }
 ```
 
 ```{r}
-plot_volcano(main_folder, folder, group_1, group_2)
-ggsave(file=paste0("../eps/", group_1, group_2, '_volcano_plot_no_label.eps'), width = 6, height = 4)
+main_folder <- "../results/"
+group_1 <- "GIPR_h"
+group_2 <- "Grupa_2"
+p1 <- plot_volcano(main_folder, "", "GIPR_p", "GIPR_h") 
+p2 <- plot_volcano(main_folder, "", "GIPR_p", "GIPR_l") 
+p3 <- plot_volcano(main_folder, "", "GIPR_h", "GIPR_l")
+```
+
+```{r}
+library(ggpubr)
+p <- ggarrange(p1, p2, p3, nrow = 1,  common.legend = TRUE, legend= "bottom", labels = c("A","B", "C"))
+pdf(paste0("../plots/volcano_plot_no_label.pdf"), useDingbats=TRUE, width = 7, height = 3.5)
+p
+dev.off()
 ```
 

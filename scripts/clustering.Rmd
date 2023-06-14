@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 library(DESeq2)
-library(umap)
+# library(umap)
 library(ggplot2)
 library(dendextend)
 library(egg)
@@ -38,7 +38,7 @@ Using k-means clustering with different number of clusters:
 library(cluster)
 silhouetteVec = rep(0,20)
 wss = rep(0,20)
-
+distMatrix = dist(rna)
 for(i in 2:20)  {
   clustering = kmeans(rna, centers = i, iter.max = 50, nstart = 150)
   silhouetteVec[i] = mean(silhouette(clustering$clust, distMatrix)[,3])
@@ -50,19 +50,26 @@ for(i in 2:20)  {
 Ploting silhouette width:
 
 ```{r}
-ggplot(data.frame(x = 1:20, y = silhouetteVec)) + 
-  geom_line(aes(x, y), color = 'blue') + xlab('Number of groups') + ylab('silhouette width') +
-  ggtitle(paste0("According to the silhouette width, the best clustering is for the division into ", 
-                   which.max(silhouetteVec), " groups."))
-ggsave(file="../plots/silhouette_width.eps", units = "cm")
+p1 <- ggplot(data.frame(x = 1:20, y = silhouetteVec)) + 
+  geom_line(aes(x, y), color = 'blue') + xlab('Number of groups') + ylab('silhouette width') 
+# ggsave(file="../plots/silhouette_width.eps", units = "cm")
 ```
 Using elbow method to find the best number od clusters:
 
 ```{r}
-ggplot(data.frame(x = 2:20, y = wss[2:20])) + 
+p2 <- ggplot(data.frame(x = 2:20, y = wss[2:20])) + 
   geom_line(aes(x, y), color = 'blue') + xlab('Number of groups') + ylab('Total within-clusters sum of squares') 
-ggsave(file="../plots/elbow_method.eps")
+# ggsave(file="../plots/elbow_method.eps")
 ```
+
+```{r}
+library(ggpubr)
+p <- ggarrange(p1, p2, nrow = 1,  labels = c("A","B"))
+pdf(file="../plots/finding_clusters.eps", width = 7, height = 3.5)
+p
+dev.off()
+```
+
 
 Assessing clustring for best number of clusters, that is equal 3:
 
