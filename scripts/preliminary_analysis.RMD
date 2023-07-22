@@ -1,0 +1,126 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(ggpubr)
+```
+
+
+```{r}
+raw_qc <- read.csv("../data/qc_summary_table_48.csv")
+```
+
+Czy próbki przeszły test podstawowych statystykc?
+```{r}
+table(raw_qc$Basic.Statistics)
+```
+
+Czy próbki przeszły ocenę jakości zasad w sekwencjach?
+
+```{r}
+table(raw_qc$Per.base.sequence.quality)
+```
+
+Czy próbki przeszły test jakości sekwencji?
+
+```{r}
+ table(raw_qc$Per.sequence.quality.scores)
+```
+Rozkład zawartości GC:
+
+```{r}
+p1 <- ggplot(raw_qc, aes(x=X.GC)) + geom_histogram(binwidth = 1)  +
+  labs(title="Rozkład zawartości GC",x="procent GC", y = "Częstotliwość")+
+  theme_classic()  theme(legend.position="bottom", text = element_text(size = 8), aspect.ratio=1)
+p1
+```
+Rozkład poziomu duplikacji sekwencji:
+```{r}
+p2 <- ggplot(raw_qc, aes(x=X._deduplicated)) + geom_histogram()  +
+  labs(title="Rozkład poziomu duplikacji sekwencji", x="procent zduplikowanych odczytów", y = "Częstotliwość")+
+  theme_classic()
+p2
+```
+
+Rozkład liczby sekwencji w wynikach sekwencjonowania:
+
+```{r}
+agg_raw_qc <- raw_qc %>% group_by(Seq.ID) %>% 
+  summarise(total_seq=sum(Total.Sequences), total_duplicated=mean(X._deduplicated))
+p3 <- ggplot(agg_raw_qc, aes(x=total_seq)) + geom_histogram(binwidth=5e+6)  +
+  labs(title="Rozkład liczby sekwencji", x="liczba sekwencji", y = "Częstotliwość")+
+  theme_classic()
+p3
+```
+
+```{r}
+p <- ggarrange(p1, p2, p3, nrow = 1,  labels = c("A","B", "C"))
+pdf(file="../plots/preliminary.pdf")
+p
+dev.off()
+```
+
+```{r}
+library(data.table)
+transpose(mapped_qc_failed)
+```
+
+
+```{r}
+mapped_qc <- read.csv("../data/qc_mapped_rna_seq.csv")
+rownames(mapped_qc) <- mapped_qc$categories
+mapped_qc_t <- transpose(mapped_qc)
+rownames(mapped_qc_t) <- colnames(mapped_qc)
+colnames(mapped_qc_t) <- rownames(mapped_qc)
+
+mapped_qc_pass <- mapped_qc_t[grepl( "_mapped_passed" , rownames(mapped_qc_t) ),]
+mapped_qc_failed <- mapped_qc_t[grepl( "_mapped_failed" , rownames(mapped_qc_t) ),]
+```
+
+```{r}
+unique(mapped_qc_failed$`total (QC-passed reads + QC-failed reads)`)
+```
+
+```{r}
+mapped_qc_pass$total <- as.numeric(mapped_qc_pass$`total (QC-passed reads + QC-failed reads)`)
+p4 <- ggplot(mapped_qc_pass, aes(x=total)) + geom_histogram(binwidth=5e+6)  +
+  labs(title="Rozkład liczby zmapowanych odczytów", x="liczba zmapowanych odczytów", y = "Częstotliwość")+
+  theme_classic()
+p4
+```
+
+
+```{r}
+mapped_qc_pass$mapped <- as.numeric(mapped_qc_pass$`mapped %`)
+p5 <- ggplot(mapped_qc_pass, aes(x=mapped)) + geom_histogram(binwidth=1)  +
+  labs(title="Rozkład procent zmapowanych odczytów", x="procent zmapowanych odczytów", y = "Częstotliwość")+
+  theme_classic()
+p5
+```
+
+```{r}
+mapped_qc_pass$multimaped <- mapped_qc_pass$mapped - as.numeric(mapped_qc_pass$`primary mapped %`)
+p6 <- ggplot(mapped_qc_pass, aes(x=multimaped)) + geom_histogram(binwidth=0.5)  +
+  labs(title="Rozkład procent wielokrotnie zmapowanych odczytów", x="procent wielokrotnie zmapowanych odczytów", y = "Częstotliwość")+
+  theme_classic()
+p6
+```
+
+```{r}
+p <- ggarrange(p4, p5, p6, nrow = 1,  labels = c("A","B", "C"))
+png(file="../plots/mapping.png")
+p
+dev.off()
+```
+```{r}
+count_qc <- read.csv("../data/counta_all_out.summary")
+```
+
+```{r}
+
+```
+

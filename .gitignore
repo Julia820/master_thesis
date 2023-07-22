@@ -1,0 +1,4 @@
+*.Rhistory
+*.png
+results/*
+data/*

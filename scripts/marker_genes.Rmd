@@ -20,7 +20,7 @@ Reading in data:
 ```{r}
 load(file = '../three_cluster_coding/dds.RData')
 rna <- counts(dds, normalized = T)
-pasAnno <- "/home/juliarymuza/Dokumenty/id_info_rna_klaster.csv"
+pasAnno <- "../../id_info_rna_klaster.csv"
 coldata <- read.csv(pasAnno)
 row.names(rna) <- simp_ensemble(row.names(rna))
 ```
