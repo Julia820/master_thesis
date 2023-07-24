@@ -1,0 +1,132 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(DESeq2)
+library(stringr)
+library(dplyr)
+library(tidyr)
+library(biomaRt)
+library(vsn)
+library(ggplot2)
+library(httr)
+library(ggpubr)
+```
+
+
+```{r}
+count_qc <- read.csv("../data/counta_all_out.summary")
+rownames(count_qc) <- count_qc$Status
+count_qc_t <- transpose(count_qc)
+rownames(count_qc_t) <- colnames(count_qc)
+colnames(count_qc_t) <- rownames(count_qc)
+count_qc_t <- count_qc_t[row.names(count_qc_t) != "Status",]
+```
+
+```{r}
+count_qc_t$Assigned <- as.numeric(count_qc_t$Assigned)
+p1 <- ggplot(count_qc_t, aes(x=Assigned)) + geom_histogram(binwidth = 10e+5)  +
+  labs(title="Rozkład liczby odczytwów\nprzypisanych do transkryptów",x="liczba odczytów", y = "Częstotliwość")+
+  theme_classic() + theme(legend.position="bottom", text = element_text(size = 8), aspect.ratio=1)
+p1
+```
+
+```{r}
+count_qc_t$Unassigned_NoFeatures <- as.numeric(count_qc_t$Unassigned_NoFeatures)
+p2 <- ggplot(count_qc_t, aes(x=Unassigned_NoFeatures)) + geom_histogram(binwidth = 10e+5)  +
+  labs(title="Rozkład liczby odczytwów\nnie zawierających transkryptów",x="liczba odczytów", y = "Częstotliwość")+
+  theme_classic() + theme(legend.position="bottom", text = element_text(size = 8), aspect.ratio=1)
+p2
+```
+
+```{r}
+count_qc_t$Unassigned_Ambiguity <- as.numeric(count_qc_t$Unassigned_Ambiguity)
+p3 <- ggplot(count_qc_t, aes(x=Unassigned_Ambiguity)) + geom_histogram(binwidth = 10e+5)  +
+  labs(title="Rozkład liczby odczytwów\nnie przypisanych do transkryptów\nz powodu niejednoznaczności",x="liczba odczytów", y = "Częstotliwość")+
+  theme_classic() + theme(legend.position="bottom", text = element_text(size = 8), aspect.ratio=1)
+p3
+```
+```{r}
+p <- ggarrange(p1, p2, p3, nrow = 1,  labels = c("A","B", "C"))
+grDevices::cairo_pdf(file="../plots/profiling_qc.pdf")
+p
+dev.off()
+```
+
+Helper function for data cleanup:
+
+```{r pressure, echo=FALSE}
+simple <- function(x){
+  p <- str_split(x, '_mapped')
+  p <- str_split(p[[1]][1], 'mapped.')
+  return (p[[1]][2])
+}
+
+simp_ensemble <- function(col){
+  df <- data.frame(x = col)
+  df <- df %>% extract(x,"A")
+  return(df$A)
+}
+```
+
+Reading in informations about samples.
+
+```{r}
+pasAnno <- "../data/id_info.csv"
+coldata <- read.csv(pasAnno, header = TRUE)
+coldata <- coldata[order(coldata$mut_stat),]
+rownames(coldata) <- coldata$samp_id
+head(coldata)
+```
+
+Reading in output of featureCounts.
+
+```{r}
+pasCts <-"../data/counta_all_out.tsv"
+cts <- as.matrix(read.csv(pasCts,sep="\t", skip = 1, row.names = 'Geneid'))
+cts <- cts[,c(6:ncol(cts))]
+```
+
+Simplifying gene names.
+
+```{r}
+col_names<-colnames(cts)
+simp_col_names <- sapply(col_names, simple)
+colnames(cts) <- as.vector(simp_col_names)
+cts <- matrix(as.numeric(cts), ncol = ncol(cts), dimnames = list(rownames(cts), colnames(cts)))
+```
+
+Filtering out non-coding gens.
+
+```{r}
+httr::set_config(config(ssl_verifypeer = 0L))
+mart <- useDataset("hsapiens_gene_ensembl", useMart("ensembl"))
+genes <- getBM(attributes= c("ensembl_gene_id",
+                             "transcript_biotype"), filters = c("transcript_biotype"), values = list("protein_coding"), mart= mart)
+
+cts_coding <- cts[simp_ensemble(rownames(cts)) %in% genes$ensembl_gene_id,]
+```
+
+Creating DESeq object and filtering gens that has low counts in over 25% of samples. Conducting gen count normalization and transformation. 
+
+```{r}
+print(all(rownames(coldata) %in% colnames(cts_coding )))
+print(all(rownames(coldata) == colnames(cts_coding )))
+cts_coding  <- cts_coding[, rownames(coldata)]
+print(all(rownames(coldata) == colnames(cts_coding)))
+
+dds <- DESeqDataSetFromMatrix(countData = cts_coding,
+                              colData = coldata,
+                              design = ~1)
+
+keep = rowSums(counts(dds) >5) > 0.25*dim(dds)[2]
+dds <- dds[keep,]
+dds <- DESeq(dds)
+save(dds, file="../results/dds.RData")
+print(dds)
+```
+
+
+

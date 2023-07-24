@@ -10,11 +10,70 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 library(DESeq2)
-# library(umap)
+library(umap)
 library(ggplot2)
 library(dendextend)
 library(egg)
+library(ggpubr)
 set.seed(0)
+```
+
+```{r}
+load(file = "../results/dds.RData")
+```
+
+
+```{r}
+raw_plot <- meanSdPlot(assay(dds))$gg +
+  labs(title="Surowe dane", y="SD (10 tys.)", x = "ranga(średniej)") +
+  theme_classic() +
+  theme(text = element_text(size = 8), aspect.ratio=1, legend.key.height = unit(0.25, 'cm'),
+        legend.key.width = unit(0.25, 'cm'),) +
+  scale_x_continuous(breaks = c(0, 7500, 15000), 
+                     labels = c(0, 7500, 15000))+
+  scale_y_continuous(breaks = c(0, 50000, 100000), 
+                     labels = c(0, 5, 10))
+```
+
+
+```{r}
+ntd <- normTransform(dds)
+vsd <- vst(dds, blind=TRUE)
+rld <- rlog(dds, blind=TRUE)
+ntd_plot <- meanSdPlot(assay(ntd))$gg +
+  labs(title="Trandofrmacja\nlogarytmiczna", y="SD", x = "ranga(średniej)")+
+  theme_classic() +
+  theme(text = element_text(size = 8), aspect.ratio=1, legend.key.height = unit(0.25, 'cm'),
+        legend.key.width = unit(0.25, 'cm'),) +
+  scale_x_continuous(breaks = c(0, 7500, 15000), 
+                     labels = c(0, 7500, 15000))
+vsd_plot <- meanSdPlot(assay(vsd))$gg +
+  labs(title="VST", y="SD", x = "ranga(średniej)")+
+  theme_classic() +
+  theme(text = element_text(size = 8), aspect.ratio=1, legend.key.height = unit(0.25, 'cm'),
+        legend.key.width = unit(0.25, 'cm'),) +
+  scale_x_continuous(breaks = c(0, 7500, 15000), 
+                     labels = c(0, 7500, 15000))
+rld_plot <- meanSdPlot(assay(rld))$gg +
+  labs(title="Trandofrmacja\nlogarytmem\nregularyzowanym", y="SD", x = "ranga(średniej)")+
+  theme_classic() +
+  theme(text = element_text(size = 8), aspect.ratio=1, legend.key.height = unit(0.25, 'cm'),
+        legend.key.width = unit(0.25, 'cm'),) +
+  scale_x_continuous(breaks = c(0, 7500, 15000), 
+                     labels = c(0, 7500, 15000))
+```
+
+
+```{r}
+p <- ggarrange(raw_plot, ntd_plot, vsd_plot, rld_plot, nrow = 2,  labels = c("A","B", "C", "D"))
+grDevices::cairo_pdf(file="../plots/transformation.pdf")
+p
+dev.off()
+```
+
+
+```{r}
+save(rld, file="../results/rld_transformed.RData")
 ```
 
 
@@ -51,25 +110,20 @@ Ploting silhouette width:
 
 ```{r}
 p1 <- ggplot(data.frame(x = 1:20, y = silhouetteVec)) + 
-  geom_line(aes(x, y), color = 'blue') + xlab('Number of groups') + ylab('silhouette width') 
-# ggsave(file="../plots/silhouette_width.eps", units = "cm")
+  geom_line(aes(x, y), color = 'blue') +
+  labs(title="Analiza sylwetki" ,x="Liczba grup", y = 'Średnia wartość sylwetki')+
+  theme_classic() +
+  theme(text = element_text(size = 8), aspect.ratio=0.75)
 ```
 Using elbow method to find the best number od clusters:
 
 ```{r}
 p2 <- ggplot(data.frame(x = 2:20, y = wss[2:20])) + 
-  geom_line(aes(x, y), color = 'blue') + xlab('Number of groups') + ylab('Total within-clusters sum of squares') 
-# ggsave(file="../plots/elbow_method.eps")
+  geom_line(aes(x, y), color = 'blue') +
+  labs(title="Metoda łokcia", x="Liczba grup", y = 'Suma kwadratów odległości')+
+  theme_classic() +
+  theme(text = element_text(size = 8), aspect.ratio=0.75)
 ```
-
-```{r}
-library(ggpubr)
-p <- ggarrange(p1, p2, nrow = 1,  labels = c("A","B"))
-pdf(file="../plots/finding_clusters.eps", width = 7, height = 3.5)
-p
-dev.off()
-```
-
 
 Assessing clustring for best number of clusters, that is equal 3:
 
@@ -77,19 +131,39 @@ Assessing clustring for best number of clusters, that is equal 3:
 distMatrix = dist(rna)
 clustering = kmeans(rna, centers = 3, iter.max = 50, nstart = 150)
 si = silhouette(clustering$clust, distMatrix)
-setEPS()                                           
-postscript("../plots/silhouette.eps")    
+grDevices::cairo_pdf(file="../plots/silhouette.pdf")
 plot(si)
 dev.off()
 ```
 
+```{r}
+si <-  sortSilhouette(si)
+si_df <- data.frame(cluster= si[,"cluster"], sil_width=si[,"sil_width"])
+si_df$cluster <- as.factor(si_df$cluster)
+si_df$probe <- as.factor(c(1:48))
+p3 <- ggplot(data=si_df, aes(x=sil_width, y=cluster, fill=probe)) +
+  geom_bar(stat="identity", position=position_dodge())  +
+  labs(title="Sylwetka dla 3 grup", y="Grupy", x = 'Wartość sylwetki')+
+  theme_classic() +
+  theme(text = element_text(size = 8), aspect.ratio=0.75, legend.position="none")
+```
+
+
+```{r}
+p <- ggarrange(p1, p2, p3, nrow = 1,  labels = c("A","B", "C"))
+grDevices::cairo_pdf(file="../plots/finding_clusters.pdf")
+p
+dev.off()
+```
+
+
+
+
 Saving cluster informations:
 
 ```{r}
-c <- paste0("Grupa_", clustering$cluster)
-names(c) <- names(clustering$cluster)
-clustering$cluster <- c
-write.csv(c, "../results/cluster_info.csv")
+cluster_df <- data.frame(probka = names(clustering$cluster), grupa= paste0("Grupa_", clustering$cluster))
+write.csv(cluster_df, "../results/cluster_info.csv")
 ```
 
 Visualizing sample clustering with UMPA:
@@ -99,10 +173,11 @@ umap.res.rna = umap(rna)
 
 df.rna = data.frame(UMAP1 = umap.res.rna$layout[,1], UMAP2 = umap.res.rna$layout[,2], name = rownames(umap.res.rna$layout),  grupa =  factor(clustering$cluster[match(rownames(umap.res.rna$layout), names(clustering$cluster))]))
 
-x = ggplot() +
-    geom_point(data = df.rna, aes(x = UMAP1, y = UMAP2, color = grupa), size = 3)
-x
-ggsave(file="../plots/umap.eps")
+p1 = ggplot() +
+    geom_point(data = df.rna, aes(x = UMAP1, y = UMAP2, color = grupa), size = 3)+
+  labs(title="UMAP", x="UMPA1", y = 'UMAP2')+
+  theme_classic() +
+  theme(text = element_text(size = 8), aspect.ratio=1, legend.position="bottom")
 ```
 
 Visualizing sample clustering with PCA:
@@ -114,73 +189,91 @@ df = data.frame(PC1 = pca$x[,"PC1"], PC2 = pca$x[,"PC2"],
                 type = factor(clustering$cluster[match(rownames(pca$x), names(clustering$cluster))]),
                 name = rownames(pca$x))
 
-x2 = ggplot() +
+p2 = ggplot() +
     geom_point(data = df, aes(x = PC1, y = PC2, color = type), size = 3)+
-  labs(x = paste0("PC1: ",round(summary(pca)$importance[2,][1]*100), "%"),
-       y = paste0("PC2: ",round(summary(pca)$importance[2,][2]*100), "%"))
-x2
-ggsave(file="../plots/pca.eps")
+  labs(title = "PCA",
+       x = paste0("PC1: ",round(summary(pca)$importance[2,][1]*100), "%"),
+       y = paste0("PC2: ",round(summary(pca)$importance[2,][2]*100), "%")) +
+  theme_classic() +
+  theme(text = element_text(size = 8), aspect.ratio=1, legend.position="bottom")
 ```
+
+```{r}
+p <- ggarrange(p1, p2, nrow = 1,  labels = c("A","B"))
+grDevices::cairo_pdf(file="../plots/2d_representation.pdf")
+p
+dev.off()
+```
+
 
 Adding information about cluster to DESeq object:
 
 ```{r}
 rld$condition <- clustering$cluster[match(rld$samp_id, names(clustering$cluster))]
-save(file = "../results/rld_transformed.RData")
+save(rld, file = "../results/rld_transformed.RData")
 load("../results/dds.RData")
 dds$condition <- clustering$cluster[match(dds$samp_id, names(clustering$cluster))]
-save(dds, "../results/dds.RData")
+save(dds, file="../results/dds.RData")
 ```
 
 ```{r}
 coldata <- read.csv("../results/cluster_info.csv")
-cols = setNames(RColorBrewer::brewer.pal(12, "Paired")[c(2,4,6)], unique(coldata$Grupa))
-coldata$color = cols[coldata$Grupa]
+cols = setNames(RColorBrewer::brewer.pal(12, "Paired")[c(2,4,6)], unique(coldata$grupa))
+coldata$color = cols[coldata$grupa]
 ```
 
 Using hierachical clustering on data:
+
 
 ```{r}
 pl = list()
 clust = hclust(dist(rna, method = "euclidean"), method = "complete")
   
-p = as.dendrogram(clust, hang = 0.1)
+p = as.dendrogram(clust) 
+p <- p %>%
+   set("leaves_pch", 19) %>% set("leaves_col", coldata[match(labels(p), coldata$probka),"color"])
 
-p <- as.ggdend(p)
-
-p$labels$col = coldata[match(p$labels$label, coldata$samp_id),"color"]
-
-x = ggplot(p) + ylim(-0.45*max(p$nodes$y), NA) + labs(title = "Hierarchical clustering", subtitle = "Methods: distance euclidean, agglomeration complete")
+ggd1 <- as.ggdend(p)
+x <- ggplot(ggd1, labels = FALSE) +
+  labs(title="Odległość Euklidesowa z łączeniem kompletnym") +
+  theme(aspect.ratio=0.25, plot.title = element_text(size=10))
 
 pl[["C1"]] = x
 
 clust = hclust(dist(rna, method = "manhattan"), method = "ward.D")
 
-p = as.dendrogram(clust, hang = 0.1)
+p = as.dendrogram(clust) 
+p <- p %>%
+   set("leaves_pch", 19) %>% set("leaves_col", coldata[match(labels(p), coldata$probka),"color"])
 
-p <- as.ggdend(p)
-
-p$labels$col = coldata[match(p$labels$label, coldata$samp_id),"color"]
-
-x = ggplot(p) + ylim(-0.45*max(p$nodes$y), NA) + labs(title = "Hierarchical clustering", subtitle = "Methods: distance Manhattan, agglomeration ward.D")
+ggd1 <- as.ggdend(p)
+x <- ggplot(ggd1, labels = FALSE) +
+  labs(title="Metryka Manhattan z metodą Warda") +
+  theme(aspect.ratio=0.25, plot.title = element_text(size=10))
 
 pl[["C2"]] = x
 
 clust = hclust(dist(rna, method = "canberra"), method = "median")
 
-p = as.dendrogram(clust, hang = 0.3)
+p = as.dendrogram(clust) 
+p <- p %>%
+   set("leaves_pch", 19) %>% set("leaves_col", coldata[match(labels(p), coldata$probka),"color"])
 
-p <- as.ggdend(p)
-
-p$labels$col = coldata[match(p$labels$label, coldata$samp_id),"color"]
-
-x = ggplot(p) + ylim(-0.45*max(p$nodes$y), NA) + labs(title = "Hierarchical clustering", subtitle = "Methods: distance Canberra, agglomeration centroid")
+ggd1 <- as.ggdend(p)
+x <- ggplot(ggd1, labels = FALSE) +
+  labs(title="Odległość Canberra z łączeniem na podstawie mediany") +
+  theme(aspect.ratio=0.25, plot.title = element_text(size=10))
 
 pl[["C3"]] = x
 
-plots = ggarrange(pl[["C1"]], pl[["C2"]], pl[["C3"]], ncol = 1)
+plots = ggarrange(pl[["C1"]], pl[["C2"]], pl[["C3"]], ncol = 1,  labels = c("A","B", "C"))
+grDevices::cairo_pdf(file="../plots/hierarchical.pdf")
 plots
-ggsave(file="../plots/dendro.eps", width = 10, height = 8, plot = plots)
+dev.off()
 
 ```
+
+
+
+
 
