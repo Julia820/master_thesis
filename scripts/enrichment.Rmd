@@ -10,13 +10,6 @@ knitr::opts_chunk$set(echo = TRUE)
 
 Seting analysis parameters:
 
-```{r}
-main_folder <- "../results/"
-ddseq_file <- "../resutls/dds.RData"
-group_1 <- "Grupa_1"
-group_2 <- "Grupa_2"
-folder <-paste0(group_1, "_", group_2)
-```
 
 
 # GO term enrichemnt
@@ -24,12 +17,23 @@ folder <-paste0(group_1, "_", group_2)
 Loading library:
 ```{r}
 library(goseq)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
 ```
+
+```{r}
+main_folder <- "../results/"
+ddseq_file <- "../resutls/dds.RData"
+group_1 <- "Grupa_2"
+group_2 <- "Grupa_3"
+```
+
 
 Reading in data:
 
 ```{r cars}
-table_all <- read.csv(file = paste0(main_folder, folder, group_1, group_2, "DA_all.csv"))
+table_all <- read.csv(file = paste0(main_folder, group_1, group_2, "DA_all.csv"))
 table_all <- table_all[!is.na(table_all$padj), ]
 df <- data.frame(x = table_all$X)
 df <- df %>% extract(x,"A")
@@ -52,18 +56,29 @@ pwf=nullp(genes2,"hg19","ensGene")
 head(pwf)
 
 GO.wall=goseq(pwf,"hg19","ensGene")
+GO.wall$over_pvalue_adj <- p.adjust(GO.wall$over_represented_pvalue, method = "BH")
+GO.wall$under_pvalue_adj <- p.adjust(GO.wall$under_represented_pvalue, method = "BH")
 
-GO.wall %>% 
-    top_n(20, wt=-over_represented_pvalue) %>% 
-    mutate(hitsPerc=numDEInCat*100/numInCat) %>% 
-    ggplot(aes(x=hitsPerc, 
-               y=term, 
-               colour=over_represented_pvalue, 
-               size=numDEInCat)) +
-        geom_point() +
-        expand_limits(x=0) +
-        labs(x="Hits (%)", y="GO term", colour="p value", size="Count")
-ggsave(file=paste0("../plots/go_analysis.eps"))
+write.csv(GO.wall, 
+          file=paste0(main_folder, group_1, group_2, "go_res.csv"))
+
+```
+
+```{r}
+
+groups <- c('Grupa_1Grupa_2', 'Grupa_1Grupa_3', 'Grupa_2Grupa_3')
+
+for(i in groups){
+  print(i)
+  go <- read.csv(paste0(main_folder, i, "go_res.csv"))
+  go$over_pvalue_adj <- p.adjust(go$over_represented_pvalue, method = "BH")
+  go$under_pvalue_adj <- p.adjust(go$under_represented_pvalue, method = "BH")
+  
+  print(go[go$over_pvalue_adj < 0.05,])
+  print(go[go$under_pvalue_adj < 0.05,])
+  
+}
+
 ```
 
 
@@ -124,29 +139,25 @@ fwrite(fgseaRes, file=paste0(main_folder, folder, group_1, group_2, "_", db_name
 Choosing significant terms:
 
 ```{r}
-w <- 6.5
-h <- 5
+db_name <- 'tft'
+db_name_plot <- 'TFT'
+# go_type<- "GOMF" # GOCC, GOBP
 
-folders <- list('GIPR_p_h/'='GIPR_pGIPR_h',
-                'GIPR_p_l/'='GIPR_pGIPR_l',
-                'GIPR_h_l/'='GIPR_hGIPR_l')
-groups <- c('GIPR_pGIPR_h', 'GIPR_pGIPR_l', 'GIPR_hGIPR_l')
+groups <- c('Grupa_1Grupa_2', 'Grupa_1Grupa_3', 'Grupa_2Grupa_3')
 
 topPathways_all <-NULL
-df_list <- list(1,2,3)
+df_list <- list(1, 2, 3)
+names(df_list) <- c('Grupa_1Grupa_2', 'Grupa_1Grupa_3', 'Grupa_2Grupa_3')
 
 
-for(i in seq_along(folders)){
-  print(paste(i,names(folders)[i],folders[[i]]))
-  gsea <- read.csv(paste0(main_folder, names(folders)[i],
-                            folders[[i]], "_", db_name ,
-                            "_GSEA.csv"), sep="\t")
-  
+for(i in groups){
+  gsea <- read.csv(paste0(main_folder, i, "/" , i, "_", db_name ,
+                            "_GSEA_hgnc.csv"))
+  # gsea <- gsea %>% filter(grepl(go_type, pathway))
   df_list[[i]] <- gsea
-  names(df_list)[i] <- folders[[i]]
   gsea <- gsea[gsea$padj < 0.05, ]
   
-  topPathways <- gsea[head(order(gsea$padj), n=10), 'pathway']
+  topPathways <- gsea[head(order(gsea$padj), n=5), 'pathway']
   topPathways_all <-c(topPathways_all,topPathways)
   
 }
@@ -157,33 +168,37 @@ topPathways_all
 Making a plot of results:
 
 ```{r}
+library(forcats)
 df = NULL
 df_names <- c('Grupa 1 vs 2', 'Grupa 1 vs 3', 'Grupa 2 vs 3')
-for(i in 1:3){
+for(i in groups){
   g <- df_list[[i]]
 
   d <- g[g$pathway %in% topPathways_all,]
 
-  d$sample <- df_names[i]
+  d$sample <- i
 
   df <- rbind(df,d)
 }
-head(df)
 scale = c(1, 10, 100, 1000, 10000)
 
-df %>%
-  mutate(pathway = fct_reorder(pathway, NES)) %>%
-  ggplot(aes(x=sample,
+
+
+df <- df %>%
+  mutate(pathway = fct_reorder(pathway, NES))
+p <- ggplot(data=df, aes(x=sample,
              y=pathway,
              colour=NES,
              size=1/padj)) +
   geom_point() +
-  labs(y= paste(db_name_plot, "term"), x='', colour="NES", size="Adj. p-value")  +
+  labs(y= paste(db_name_plot, "term"), x='', colour="NES", size="FDR")  +
   scale_size(labels=1/scale,breaks=scale,trans = 'log10') +
-  scale_color_gradient2(low="blue", mid="white", high="red", space ="Lab" ) #+
+  scale_color_gradient2(low="blue", mid="white", high="red", space ="Lab" ) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1), text = element_text(size = 8))
 
-ggsave(file=paste0("../results/gsea_", db_name,'_', mode, '_', type, '.eps'), width=w, height=h)
-
+pdf(paste0("../plots/", db_name, ".pdf"), useDingbats=TRUE, width =6, height = 3.5)
+p
+dev.off()
 
 ```
 

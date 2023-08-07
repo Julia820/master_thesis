@@ -87,6 +87,7 @@ Reading in output of featureCounts.
 pasCts <-"../data/counta_all_out.tsv"
 cts <- as.matrix(read.csv(pasCts,sep="\t", skip = 1, row.names = 'Geneid'))
 cts <- cts[,c(6:ncol(cts))]
+dim(cts)
 ```
 
 Simplifying gene names.

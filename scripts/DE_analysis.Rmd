@@ -116,9 +116,9 @@ plot_volcano <- function(main_folder, folder, group_1, group_2){
 main_folder <- "../results/"
 group_1 <- "GIPR_h"
 group_2 <- "Grupa_2"
-p1 <- plot_volcano(main_folder, "", "GIPR_p", "GIPR_h") 
-p2 <- plot_volcano(main_folder, "", "GIPR_p", "GIPR_l") 
-p3 <- plot_volcano(main_folder, "", "GIPR_h", "GIPR_l")
+p1 <- plot_volcano(main_folder, "", "Grupa_1", "Grupa_2") 
+p2 <- plot_volcano(main_folder, "", "Grupa_1", "Grupa_3") 
+p3 <- plot_volcano(main_folder, "", "Grupa_2", "Grupa_3")
 ```
 
 ```{r}
