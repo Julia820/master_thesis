@@ -22,66 +22,67 @@ library(tidyr)
 library(ggplot2)
 ```
 
-```{r}
-main_folder <- "../results/"
-ddseq_file <- "../resutls/dds.RData"
-group_1 <- "Grupa_2"
-group_2 <- "Grupa_3"
-```
-
-
-Reading in data:
-
-```{r cars}
-table_all <- read.csv(file = paste0(main_folder, group_1, group_2, "DA_all.csv"))
-table_all <- table_all[!is.na(table_all$padj), ]
-df <- data.frame(x = table_all$X)
-df <- df %>% extract(x,"A")
-row.names(table_all) <- df$A
-head(table_all)
-```
-
-Checking which genes were DE:
-
-```{r pressure, echo=FALSE}
-genes2 <- as.integer(table_all$padj<0.05)
-names(genes2) = row.names(table_all)
-table(genes2)
-```
-
-Running analysis:
 
 ```{r}
-pwf=nullp(genes2,"hg19","ensGene")
-head(pwf)
-
-GO.wall=goseq(pwf,"hg19","ensGene")
-GO.wall$over_pvalue_adj <- p.adjust(GO.wall$over_represented_pvalue, method = "BH")
-GO.wall$under_pvalue_adj <- p.adjust(GO.wall$under_represented_pvalue, method = "BH")
-
-write.csv(GO.wall, 
-          file=paste0(main_folder, group_1, group_2, "go_res.csv"))
-
-```
-
-```{r}
-
-groups <- c('Grupa_1Grupa_2', 'Grupa_1Grupa_3', 'Grupa_2Grupa_3')
-
-for(i in groups){
-  print(i)
-  go <- read.csv(paste0(main_folder, i, "go_res.csv"))
-  go$over_pvalue_adj <- p.adjust(go$over_represented_pvalue, method = "BH")
-  go$under_pvalue_adj <- p.adjust(go$under_represented_pvalue, method = "BH")
-  
-  print(go[go$over_pvalue_adj < 0.05,])
-  print(go[go$under_pvalue_adj < 0.05,])
-  
+prep_intersting_gen <- function(a, b){
+  df <- read.csv(paste0( "../results/", a, b, "/", a,b, "DA_0_05_names_ref_seq.csv"))
+  df <- df[df$padj<0.05,]
+  df <- df[abs(df$log2FoldChange)>log2(2),]
+  return(df$hgnc_symbol)
 }
 
 ```
 
 
+```{r}
+gen12 <- prep_intersting_gen("Grupa_1", "Grupa_2")
+gen13 <- prep_intersting_gen("Grupa_1", "Grupa_3")
+gen23 <- prep_intersting_gen("Grupa_2", "Grupa_3")
+```
+
+```{r}
+write.csv(gen12, "../results/DEG_1_2.csv",row.names=F)
+write.csv(gen13, "../results/DEG_1_3.csv",row.names=F)
+write.csv(gen23, "../results/DEG_2_3.csv",row.names=F)
+```
+
+
+Reading in data:
+
+```{r}
+go_enrichment <- function(group_1, group_2, main_folder){
+  table_all <- read.csv(file = paste0(main_folder, group_1, group_2, "/", group_1, group_2, "DA_all.csv"))
+  table_all <- table_all[!is.na(table_all$padj), ]
+  df <- data.frame(x = table_all$X)
+  df <- df %>% extract(x,"A")
+  row.names(table_all) <- df$A
+  genes2 <- as.integer(table_all$padj<0.05 & abs(table_all$log2FoldChange) > log2(2))
+  names(genes2) = row.names(table_all)
+  pwf=nullp(genes2,"hg19","ensGene")
+  GO.wall=goseq(pwf,"hg19","ensGene")
+  GO.wall$over_pvalue_adj <- p.adjust(GO.wall$over_represented_pvalue, method = "BH")
+  GO.wall$under_pvalue_adj <- p.adjust(GO.wall$under_represented_pvalue, method = "BH")
+  write.csv(GO.wall, 
+          file=paste0(main_folder, group_1, group_2, "/", group_1, group_2, "go_res.csv"))
+  print(paste("Liczba terimów over", sum(GO.wall$over_pvalue_adj< 0.05)))
+  print(paste("Liczba terimów under", sum(GO.wall$under_pvalue_adj< 0.05)))
+}
+```
+
+```{r}
+go_enrichment("Grupa_1", "Grupa_2", "../results/")
+```
+
+
+```{r}
+go_enrichment("Grupa_1", "Grupa_3", "../results/")
+```
+
+
+
+```{r}
+go_enrichment("Grupa_2", "Grupa_3", "../results/")
+```
 
 # GSEA
 

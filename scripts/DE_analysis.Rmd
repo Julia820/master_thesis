@@ -180,58 +180,7 @@ p
 dev.off()
 ```
 
-```{r}
-prep_intersting_gen <- function(a, b){
-  df <- read.csv(paste0( "../results/", a, b, "/", a,b, "DA_0_05_names_ref_seq.csv"))
-  df <- df[df$padj<0.05,]
-  df <- df[abs(df$log2FoldChange)>log2(2),]
-  return(df$hgnc_symbol)
-}
 
-```
-
-
-```{r}
-gen12 <- prep_intersting_gen("Grupa_1", "Grupa_2")
-gen13 <- prep_intersting_gen("Grupa_1", "Grupa_3")
-gen23 <- prep_intersting_gen("Grupa_2", "Grupa_3")
-```
-
-```{r}
-i12_13 <- intersect(gen12, gen13)
-i12_23 <- intersect(gen12, gen23)
-i13_23 <- intersect(gen13, gen23)
-```
-
-```{r}
-library(VennDiagram)
-venn.diagram(
-  x = list(gen12, gen13, gen23),
-  category.names = c("Set 1" , "Set 2 " , "Set 3"),
-  filename = '#14_venn_diagramm.png',
-  output=TRUE
-)
-```
-
-```{r}
-venn.plot <- draw.triple.venn(
-	area1 = 65,
-	area2 = 75,
-	area3 = 85,
-	n12 = 35,
-	n23 = 15,
-	n13 = 25,
-	n123 = 5,
-	category = c("First", "Second", "Third"),
-	fill = c("blue", "red", "green"),
-	lty = "blank",
-	cex = 2,
-	cat.cex = 2,
-	cat.col = c("blue", "red", "green")
-	);
-grid.draw(venn.plot)
-dev.off();
-```
 
 
 
