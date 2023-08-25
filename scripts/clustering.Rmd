@@ -131,6 +131,10 @@ Assessing clustring for best number of clusters, that is equal 3:
 distMatrix = dist(rna)
 clustering = kmeans(rna, centers = 3, iter.max = 50, nstart = 150)
 si = silhouette(clustering$clust, distMatrix)
+```
+
+
+```{r}
 grDevices::cairo_pdf(file="../plots/silhouette.pdf")
 plot(si)
 dev.off()
@@ -205,6 +209,26 @@ p
 dev.off()
 ```
 
+```{r}
+explained <- data.frame(t(summary(pca)$importance))
+explained$Proportion.of.Variance <- explained$Proportion.of.Variance*100
+explained$comp <- c(1:48)
+p2_2 <- ggplot(data=explained, aes(x=comp, y=Proportion.of.Variance)) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  labs(title = "Wyjaśniona wariancja",
+       y = "Procent wyjaśnionej wariancji",
+       x = "Składowe główne") +
+  theme_classic() +
+  theme(text = element_text(size = 8), aspect.ratio=0.8)
+p2_2
+```
+
+```{r}
+grDevices::cairo_pdf(file="../plots/pca_var.pdf", height=3.5)
+p2_2
+dev.off()
+```
+
 
 Adding information about cluster to DESeq object:
 
@@ -212,8 +236,10 @@ Adding information about cluster to DESeq object:
 rld$condition <- clustering$cluster[match(rld$samp_id, names(clustering$cluster))]
 save(rld, file = "../results/rld_transformed.RData")
 load("../results/dds.RData")
-dds$condition <- clustering$cluster[match(dds$samp_id, names(clustering$cluster))]
-save(dds, file="../results/dds.RData")
+dds$condition <- factor(clustering$cluster[match(dds$samp_id, names(clustering$cluster))])
+design(dds) <- formula(~ condition)
+dds <- DESeq(dds)
+save(dds, file="../results/dds_design.RData")
 ```
 
 ```{r}

@@ -18,13 +18,14 @@ library(ggrepel)
 library(factoextra)
 library(dplyr)
 library(tidyr)
+library(ggpubr)
 ```
 
 Defining analysis parameters:
 
 ```{r}
-main_folder <- "results/"
-ddseq_file <- "dds.RData"
+main_folder <- "../results/"
+ddseq_file <- "dds_design.RData"
 group_1 <- "Grupa_1"
 group_2 <- "Grupa_2"
 folder <-paste0(group_1, "_", group_2)
@@ -46,6 +47,7 @@ print(paste('Gens with p-value < 0.05',sum(res$padj < 0.05, na.rm=TRUE)))
 write.csv(as.data.frame(resOrdered), 
           file= paste0(main_folder, folder, group_1, group_2, "DA_all.csv"))
 ```
+
 
 Saving result:
 
@@ -95,37 +97,146 @@ plot_volcano <- function(main_folder, folder, group_1, group_2){
   da <- read.csv(file=paste0(main_folder, folder, group_1, group_2, "DA_all.csv"))
   da <- da %>% 
   mutate(
-    Expression = case_when(log2FoldChange >= log(2) & padj <= 0.05 ~ "Up-regulated",
-                           log2FoldChange <= -log(2) & padj <= 0.05 ~ "Down-regulated",
-                           TRUE ~ "Unchanged")
+    Ekspresja = case_when(log2FoldChange >= log(2) & padj <= 0.05 ~ "Podwyższona",
+                           log2FoldChange <= -log(2) & padj <= 0.05 ~ "Obniżona",
+                           TRUE ~ "Niezmieniona")
     )
   
   p1 <- ggplot(da, aes(log2FoldChange, -log(padj,10))) + # -log10 conversion  
-  geom_point(aes(color = Expression), size = 2/5) +
-  xlab(expression("log"[2]*"FC")) + 
-  ylab(expression("-log"[10]*"padj")) +
-  scale_color_manual(values = c("dodgerblue3", "gray50", "firebrick3")) +
+  geom_point(aes(color = Ekspresja), size = 2/5) +
+    labs(title = paste(group_1, "vs", group_2),
+       x = expression("log"[2]*"FC"),
+       y = expression("-log"[10]*"padj")) +
+  scale_color_manual(values = c("gray50", p1"dodgerblue3", "firebrick3")) +
+  scale_x_continuous(limits = c(-6, 6), breaks = c(-6, -3, 0, 3, 6)) +
   guides(colour = guide_legend(override.aes = list(size=1.5))) +
-    theme(panel.background = element_blank()) +
-   theme(axis.line = element_line(colour = "grey50")) 
+  theme_classic() +
+  theme(text = element_text(size = 8), aspect.ratio=1)
   return(p1)
 }
 ```
 
 ```{r}
 main_folder <- "../results/"
-group_1 <- "GIPR_h"
-group_2 <- "Grupa_2"
-p1 <- plot_volcano(main_folder, "", "Grupa_1", "Grupa_2") 
-p2 <- plot_volcano(main_folder, "", "Grupa_1", "Grupa_3") 
-p3 <- plot_volcano(main_folder, "", "Grupa_2", "Grupa_3")
+p1 <- plot_volcano(main_folder, "Grupa_1Grupa_2/", "Grupa_1", "Grupa_2") 
+p2 <- plot_volcano(main_folder, "Grupa_1Grupa_3/", "Grupa_1", "Grupa_3") 
+p3 <- plot_volcano(main_folder, "Grupa_2Grupa_3/", "Grupa_2", "Grupa_3")
 ```
 
 ```{r}
-library(ggpubr)
+
 p <- ggarrange(p1, p2, p3, nrow = 1,  common.legend = TRUE, legend= "bottom", labels = c("A","B", "C"))
 pdf(paste0("../plots/volcano_plot_no_label.pdf"), useDingbats=TRUE, width = 7, height = 3.5)
 p
 dev.off()
 ```
+
+
+```{r}
+ma_plot <- function(a, b, main_folder){
+  df <- read.csv(paste0(main_folder, a, b, "/", a,b, "DA_0_05_names_ref_seq.csv"))
+  df <- df[df$padj<0.05,]
+  df <- df[abs(df$log2FoldChange)>log2(2),]
+  df$pom <- df$log2FoldChange>0
+  deg <- table(df$pom)
+  print(paste("Liczba genów różnicujących", sum(deg)))
+  print(paste( "Liczba genów o obniżonej ekspresji", deg[1]))
+  print(paste( "Liczba genów o podwyższonej ekspresji", deg[2]))
+  res <- results(dds, contrast=c('condition', a, b))
+  p <- ggmaplot(res, size=0.4, top=0, fc=2) +
+  labs(title = paste(a, "vs", b),
+       y = expression("log"[2]*"FC"),
+       x = expression("log"[2]*"BM")) +
+  theme_classic() +
+  theme(text = element_text(size = 8), aspect.ratio=1, legend.position = "none")
+  return(p)
+}
+```
+
+```{r}
+p1_2 <- ma_plot("Grupa_1", "Grupa_2", "../results/")
+```
+
+```{r}
+p1_3 <- ma_plot("Grupa_1", "Grupa_3", "../results/")
+```
+
+```{r}
+p2_3 <- ma_plot("Grupa_2", "Grupa_3", "../results/")
+```
+
+
+```{r}
+p <- ggarrange(p1_2, p1_3, p2_3, nrow = 1,  labels = c("A","B", "C"))
+grDevices::cairo_pdf(file="../plots/MA_plot.pdf")
+p
+dev.off()
+```
+
+```{r}
+p <- ggarrange(p1, p1_2, p2, p1_3, p3, p2_3, ncol =2, nrow = 3,  labels = c("A","B", "C", "D", "E", "F"), common.legend=TRUE)
+grDevices::pdf(file="../plots/DEG_plot.pdf", useDingbats = TRUE)
+p
+dev.off()
+```
+
+```{r}
+prep_intersting_gen <- function(a, b){
+  df <- read.csv(paste0( "../results/", a, b, "/", a,b, "DA_0_05_names_ref_seq.csv"))
+  df <- df[df$padj<0.05,]
+  df <- df[abs(df$log2FoldChange)>log2(2),]
+  return(df$hgnc_symbol)
+}
+
+```
+
+
+```{r}
+gen12 <- prep_intersting_gen("Grupa_1", "Grupa_2")
+gen13 <- prep_intersting_gen("Grupa_1", "Grupa_3")
+gen23 <- prep_intersting_gen("Grupa_2", "Grupa_3")
+```
+
+```{r}
+i12_13 <- intersect(gen12, gen13)
+i12_23 <- intersect(gen12, gen23)
+i13_23 <- intersect(gen13, gen23)
+```
+
+```{r}
+library(VennDiagram)
+venn.diagram(
+  x = list(gen12, gen13, gen23),
+  category.names = c("Set 1" , "Set 2 " , "Set 3"),
+  filename = '#14_venn_diagramm.png',
+  output=TRUE
+)
+```
+
+```{r}
+venn.plot <- draw.triple.venn(
+	area1 = 65,
+	area2 = 75,
+	area3 = 85,
+	n12 = 35,
+	n23 = 15,
+	n13 = 25,
+	n123 = 5,
+	category = c("First", "Second", "Third"),
+	fill = c("blue", "red", "green"),
+	lty = "blank",
+	cex = 2,
+	cat.cex = 2,
+	cat.col = c("blue", "red", "green")
+	);
+grid.draw(venn.plot)
+dev.off();
+```
+
+
+
+
+
+
+
 
