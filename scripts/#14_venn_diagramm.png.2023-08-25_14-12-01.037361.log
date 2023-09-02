@@ -1,0 +1,12 @@
+INFO [2023-08-25 14:12:01] $x
+INFO [2023-08-25 14:12:01] list(gen12, gen13, gen23)
+INFO [2023-08-25 14:12:01] 
+INFO [2023-08-25 14:12:01] $category.names
+INFO [2023-08-25 14:12:01] c("Grupa_1 vs Grupa_2", "Grupa_1 vs Grupa_3", "Grupa_2 vs Grupa_3")
+INFO [2023-08-25 14:12:01] 
+INFO [2023-08-25 14:12:01] $filename
+INFO [2023-08-25 14:12:01] [1] "#14_venn_diagramm.png"
+INFO [2023-08-25 14:12:01] 
+INFO [2023-08-25 14:12:01] $output
+INFO [2023-08-25 14:12:01] [1] TRUE
+INFO [2023-08-25 14:12:01] 

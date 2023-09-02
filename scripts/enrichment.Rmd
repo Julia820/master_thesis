@@ -141,9 +141,9 @@ p <- ggplot(data=df, aes(x=sample,
   # scale_color_gradient2(low="blue", mid="white", high="red", space ="Lab" ) +
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1), text = element_text(size = 8))
 
-pdf(paste0("../plots/goseq_go_terms.pdf"), useDingbats=TRUE, width = 7, height = 3.5)
-p
-dev.off()
+# pdf(paste0("../plots/goseq_go_terms.pdf"), useDingbats=TRUE, width = 7, height = 3.5)
+# p
+# dev.off()
 ```
 
 ## Enrricher
@@ -286,7 +286,7 @@ db_name <- 'kegg'
 db_name_plot <- 'KEGG'
 db_name <- 'go'
 db_name_plot <- 'GO'
-go_type<- "GOBP"  #GOCC, GOBP, GOMF
+go_type<- "GOMF"  #GOCC, GOBP, GOMF
 
 groups <- c('Grupa_1Grupa_2', 'Grupa_1Grupa_3', 'Grupa_2Grupa_3')
 
@@ -301,7 +301,7 @@ for(i in groups){
   gsea <- gsea %>% filter(grepl(go_type, pathway))
   df_list[[i]] <- gsea
   gsea <- gsea[gsea$padj < 0.05, ]
-  
+  print(dim(gsea))
   topPathways <- gsea[head(order(gsea$padj), n=5), 'pathway']
   topPathways_all <-c(topPathways_all,topPathways)
   
