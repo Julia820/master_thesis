@@ -14,6 +14,10 @@ Loading libraries:
 library(MGFR)
 library(DESeq2)
 library(ggpubr)
+library(ROCR)
+library(ggplot2)
+library(ggrepel)
+library("tidyr")
 ```
 
 ```{r}
@@ -96,15 +100,13 @@ calc_auc <- function(x, g) {
 ```
 
 ```{r}
-library(ROCR)
-library(ggplot2)
 x <- rna['ENSG00000100934', ]
 g <- 'Cluster_3'
 test_class <- numeric(length(x))
 test_class[classes == g] <- 1
 pred <- prediction(x, test_class)
 perf <- performance(pred, "tpr", "fpr")
-auc <- performance(pred, measure = "auc")@y.values[[1]]
+auc1 <- performance(pred, measure = "auc")@y.values[[1]]
 rd <- data.frame(x = perf@x.values[[1]], y = perf@y.values[[1]])
 p1 <- ggplot(rd, aes(x = x, y = y)) + geom_path(size = 1) +
   geom_text(
@@ -113,7 +115,7 @@ p1 <- ggplot(rd, aes(x = x, y = y)) + geom_path(size = 1) +
       y = 0.25,
       hjust = 0.1,
       vjust = 0,
-      label = paste(sep = "", "AUC = ", round(auc, 3))
+      label = paste(sep = "", "AUC = ", round(auc1, 3))
     ),
     colour = "black",
     size = 4
@@ -135,7 +137,7 @@ test_class <- numeric(length(x))
 test_class[classes != g] <- 1
 pred <- prediction(x, test_class)
 perf <- performance(pred, "tpr", "fpr")
-auc <- performance(pred, measure = "auc")@y.values[[1]]
+auc2 <- performance(pred, measure = "auc")@y.values[[1]]
 rd <- data.frame(x = perf@x.values[[1]], y = perf@y.values[[1]])
 p2 <- ggplot(rd, aes(x = x, y = y)) + geom_path(size = 1) +
   geom_text(
@@ -144,7 +146,7 @@ p2 <- ggplot(rd, aes(x = x, y = y)) + geom_path(size = 1) +
       y = 0.25,
       hjust = 0.1,
       vjust = 0,
-      label = paste(sep = "", "AUC = ", round(auc, 3))
+      label = paste(sep = "", "AUC = ", round(auc2, 3))
     ),
     colour = "black",
     size = 4
@@ -163,7 +165,7 @@ test_class <- numeric(length(x))
 test_class[classes == g] <- 1
 pred <- prediction(x, test_class)
 perf <- performance(pred, "tpr", "fpr")
-auc <- performance(pred, measure = "auc")@y.values[[1]]
+auc3 <- performance(pred, measure = "auc")@y.values[[1]]
 rd <- data.frame(x = perf@x.values[[1]], y = perf@y.values[[1]])
 p3 <- ggplot(rd, aes(x = x, y = y)) + geom_path(size = 1) +
   geom_text(
@@ -172,7 +174,7 @@ p3 <- ggplot(rd, aes(x = x, y = y)) + geom_path(size = 1) +
       y = 0.25,
       hjust = 0.1,
       vjust = 0,
-      label = paste(sep = "", "AUC = ", round(auc, 4))
+      label = paste(sep = "", "AUC = ", round(auc3, 3))
     ),
     colour = "black",
     size = 4
@@ -224,10 +226,64 @@ combine$hgnc <- G_list[match(combine$ensembl, G_list$ensembl_gene_id), "hgnc_sym
 write.csv(combine, file="../results/roc_deseq_norm.csv")
 ```
 
+
+```{r}
+marker_auc <- read.csv("../results/roc_deseq_norm.csv")
+```
+
+```{r}
+best_auc_plot <- function(col, tit) {
+  marker_auc_1 <-
+    marker_auc[order(marker_auc[,col], decreasing = TRUE), c("hgnc", col)]
+  colnames(marker_auc_1) <- c("hgnc", "auc")
+  marker_auc_1 <- marker_auc_1[c(1:20), ]
+  marker_auc_1 = marker_auc_1[!duplicated(marker_auc_1$hgnc), ]
+  marker_auc_1$hgnc <-
+    factor(marker_auc_1$hgnc, levels = marker_auc_1$hgnc)
+  p <- ggplot(marker_auc_1, aes(x = hgnc, y = auc)) +
+    theme_classic() +
+    geom_point(size=0.5)   +
+    labs(title = tit,
+       x = "Geny",
+       y = "AUC") +
+    geom_text_repel(
+      data = marker_auc_1[marker_auc_1$auc==1,],
+      aes(label = hgnc),
+      size = 2,
+      max.overlaps = 20
+    ) +
+    theme(
+      axis.text.x = element_blank(),
+      axis.ticks.x = element_blank(),
+      text = element_text(size = 8)
+    )
+  p
+}
+
+```
+
+```{r}
+p1 <- best_auc_plot("auc_1", "Grupa 1")
+p2 <- best_auc_plot("auc_2", "Grupa 2")
+p3 <- best_auc_plot("auc_3", "Grupa 3")
+```
+
+```{r}
+p <- ggarrange(p1, p2, p3, nrow = 1,  labels = c("A", "B", "C"))
+pdf(file = "../plots/best_auc.pdf", height = 2.5)
+p
+dev.off()
+```
+
+
 ```{r}
 library(plotly)
-markers <- data.frame(SEC23A=rna['ENSG00000100934', ], CCND2=rna['ENSG00000118971', ], NR5A1=rna['ENSG00000136931',], cluster=classes )
-fig <- plot_ly(data = markers, x = ~SEC23A, y = ~CCND2, z = ~NR5A1, color=classes, type="scatter3d")
+classes_pl <- classes
+classes_pl[classes_pl=="Cluster_1"] <- "Grupa 1"
+classes_pl[classes_pl=="Cluster_2"] <- "Grupa 2"
+classes_pl[classes_pl=="Cluster_3"] <- "Grupa 3"
+markers <- data.frame(SEC23A=rna['ENSG00000100934', ], CCND2=rna['ENSG00000118971', ], NR5A1=rna['ENSG00000136931',], cluster=classes_pl)
+fig <- plot_ly(data = markers, x = ~SEC23A, y = ~CCND2, z = ~NR5A1, color=~cluster, type="scatter3d")
 
 fig
 

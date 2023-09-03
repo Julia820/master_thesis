@@ -1,0 +1,69 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+library(pathview)
+library(dplyr)
+library(tidyr)
+library(DESeq2)
+library(tidyr)
+```
+
+```{r}
+simp_ensemble <- function(col){
+  df <- data.frame(x = col)
+  df <- df %>% extract(x,"A")
+  return(df$A)
+}
+```
+
+```{r}
+load(file = '../results/dds_design.RData')
+rna <- counts(dds, normalized = T)
+row.names(rna) <- simp_ensemble(row.names(rna))
+pasAnno <- "../data/id_info_rna_klaster.csv"
+coldata <- read.csv(pasAnno)
+```
+
+```{r}
+folders <- c("Grupa_1Grupa_2", "Grupa_1Grupa_3", "Grupa_2Grupa_3")
+all_genes <- c()
+all_genes_names <- c(NA, NA)
+for(i in c(1:3)){
+  print(paste(folders[i]))
+  exp_data <- read.csv(paste0('../results/',folders[i], "/", 
+                          folders[i], 'DA_0_05_names_ref_seq.csv'))
+  genes <- exp_data$ensembl_gene_id
+  all_genes <- append(all_genes, genes)
+}
+head(all_genes)
+all_genes <- unique(all_genes)
+all_genes <- all_genes[all_genes %in% rownames(rna)]
+```
+
+```{r}
+df_mean <- data.frame(Cluster_1=rowMeans(rna[all_genes,coldata[coldata$Cluster=='Cluster_1', 'samp_id']]),
+                      Cluster_2=rowMeans(rna[all_genes,coldata[coldata$Cluster=='Cluster_2', 'samp_id']]),
+                      Cluster_3=rowMeans(rna[all_genes,coldata[coldata$Cluster=='Cluster_3', 'samp_id']]))
+df_mean_scale <- t(scale(t(df_mean)))
+```
+
+
+```{r}
+setwd('../plots/')
+pv.out <- pathview(gene.data =df_mean_scale, pathway.id = 'hsa04935', species = "hsa", 
+                   out.suffix = 'test',
+                   kegg.native=T,
+                   # limit=list(gene=1, cpd=1),
+                   bins=list(gene=20, cpd=10),
+                   # low=list(gene="green", cpd=1), mid=list(gene="black", cpd=1), high=list(gene="red", cpd=1),
+                   gene.idtype=gene.idtype.list[3])
+```
+
+

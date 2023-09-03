@@ -3,3 +3,5 @@
 results/*
 data/*
 *.svg
+!plots/hsa04935.test.multi_v2.png
+!plots/marker_3d_v2.png
