@@ -15,12 +15,13 @@ library(immunedeconv)
 library(biomaRt)
 library(dplyr)
 library(tidyr)
+library(reshape2)
 ```
 
 Reading in data:
 
 ```{r}
-load(file = 'three_cluster_coding/dds.RData')
+load(file = '../data/dds.RData')
 rna_org <- counts(dds, normalized = T)
 pasAnno <- "../data/id_info_rna_klaster.csv"
 coldata <- read.csv(pasAnno)
@@ -60,19 +61,26 @@ colnames(res) <- sub("X", "", colnames(res))
 Saving results as plot:
 
 ```{r}
-epic_df <- read.csv('epic_res.csv')
+epic_df <- read.csv('../results/epic_res_p_val.csv')
 colnames(epic_df)<-gsub("X","",colnames(epic_df))
-epic_df <- epic_df[,c('cell_type',id_tab$samp_id)]
+epic_df <- epic_df[,c('cell_type',coldata$samp_id)]
 epic_df <- epic_df[1:7,]
 epic_df <- melt(epic_df)
 colnames(epic_df) <- c('cell_type', 'samp_id', 'value')
-epic_df <- merge(epic_df, id_tab, by='samp_id')
+epic_df <- merge(epic_df, coldata, by='samp_id')
 colnames(epic_df)[colnames(epic_df) == 'artykul'] <- 'Cluster'
 head(epic_df)
-ggplot(epic_df, aes(x=samp_id,
+p <- ggplot(epic_df, aes(x=samp_id,
              y=cell_type,
              color=Cluster,
              size=value)) +
   geom_point() + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-ggsave(file="../results/immuno.eps", width = 30, height = 10, units = "cm")
+ggsave(file="../plots/immuno.pdf", width = 30, height = 10, units = "cm")
 ```
+
+```{r}
+cell_type_p_val <- epic_df[,c(51:58)]
+row.names(cell_type_p_val) <- epic_df$cell_type
+
+```
+

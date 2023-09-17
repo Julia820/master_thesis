@@ -15,7 +15,7 @@ Seting analysis parameters:
 # GO term enrichemnt
 
 Loading library:
-```{r}
+```{r message=FALSE, warning=FALSE}
 library(goseq)
 library(dplyr)
 library(tidyr)
@@ -284,9 +284,9 @@ db_name <- 'reactome'
 db_name_plot <- 'Reactome'
 # db_name <- 'kegg'
 # db_name_plot <- 'KEGG'
-# db_name <- 'go'
-# db_name_plot <- 'GO'
-# go_type<- "GOMF"  #GOCC, GOBP, GOMF
+db_name <- 'go'
+db_name_plot <- 'GO'
+go_type<- "GOMF"  #GOCC, GOBP, GOMF
 
 groups <- c('Grupa_1Grupa_2', 'Grupa_1Grupa_3', 'Grupa_2Grupa_3')
 
@@ -298,7 +298,7 @@ names(df_list) <- c('Grupa_1Grupa_2', 'Grupa_1Grupa_3', 'Grupa_2Grupa_3')
 for(i in groups){
   gsea <- read.csv(paste0(main_folder, i, "/" , i, "_", db_name ,
                             "_GSEA_hgnc.csv"))
-  # gsea <- gsea %>% filter(grepl(go_type, pathway))
+  gsea <- gsea %>% filter(grepl(go_type, pathway))
   df_list[[i]] <- gsea
   gsea <- gsea[gsea$padj < 0.05, ]
   print(dim(gsea))

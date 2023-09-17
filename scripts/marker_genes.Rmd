@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 Loading libraries:
 
-```{r}
+```{r message=FALSE}
 library(MGFR)
 library(DESeq2)
 library(ggpubr)
@@ -219,29 +219,31 @@ best_auc_plot <- function(col, tit) {
   marker_auc_1 <-
     marker_auc[order(marker_auc[,col], decreasing = TRUE), c("hgnc", col)]
   colnames(marker_auc_1) <- c("hgnc", "auc")
-  print(dim(marker_auc_1[marker_auc_1$auc >0.99,])[[1]])
-  # marker_auc_1 <- marker_auc_1[c(1:20), ]
-  # marker_auc_1 = marker_auc_1[!duplicated(marker_auc_1$hgnc), ]
-  # marker_auc_1$hgnc <-
-  #   factor(marker_auc_1$hgnc, levels = marker_auc_1$hgnc)
-  # p <- ggplot(marker_auc_1, aes(x = hgnc, y = auc)) +
-  #   theme_classic() +
-  #   geom_point(size=0.5)   +
-  #   labs(title = tit,
-  #      x = "Geny",
-  #      y = "AUC") +
-  #   geom_text_repel(
-  #     data = marker_auc_1[marker_auc_1$auc==1,],
-  #     aes(label = hgnc),
-  #     size = 2,
-  #     max.overlaps = 20
-  #   ) +
-  #   theme(
-  #     axis.text.x = element_blank(),
-  #     axis.ticks.x = element_blank(),
-  #     text = element_text(size = 8)
-  #   )
-  # p
+  marker_auc_1 <- marker_auc_1[marker_auc_1$auc >0.99,]
+  marker_auc_1 = marker_auc_1[!duplicated(marker_auc_1$hgnc), ]
+  marker_auc_1$hgnc <-
+    factor(marker_auc_1$hgnc, levels = marker_auc_1$hgnc)
+  print(dim(marker_auc_1)[[1]])
+  p <- ggplot(marker_auc_1, aes(x = hgnc, y = auc)) +
+    theme_classic() +
+    geom_point(size=0.5)   +
+    labs(title = tit,
+       x = "Geny",
+       y = "AUC")  +
+     scale_y_continuous(breaks = seq(0.99, 1.1, by =0.0025) )+
+  ylim(0.99, 1)+
+    # geom_text_repel(
+    #   data = marker_auc_1[marker_auc_1$auc==1,],
+    #   aes(label = hgnc),
+    #   size = 2,
+    #   max.overlaps = 20
+    # ) +
+    theme(
+      axis.text.x = element_blank(),
+      axis.ticks.x = element_blank(),
+      text = element_text(size = 8)
+    ) 
+  p
 }
 
 ```
