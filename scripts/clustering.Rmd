@@ -125,7 +125,7 @@ p2 <- ggplot(data.frame(x = 2:20, y = wss[2:20])) +
   theme(text = element_text(size = 8), aspect.ratio=0.75)
 ```
 
-Assessing clustring for best number of clusters, that is equal 3:
+Assessing clustering for best number of clusters, that is equal 3:
 
 ```{r}
 distMatrix = dist(rna)
@@ -210,35 +210,81 @@ dev.off()
 ```
 
 ```{r}
-for (i in c(0.01, 0.1, 0.25, 0.5, 0.75, 1)){
-  rna_plot <- rna[, round(dim(rna)[[2]]*i)]
+cluster_df <- read.csv("../results/cluster_info.csv")
+```
+
+
+```{r}
+plot_list <- list()
+for (i in c(0.25, 0.5, 0.75, 1)) {
+  rna_plot <- rna[, c(1:round(dim(rna)[[2]] * i))]
+  print(round(dim(rna)[[2]] * i))
   umap.res.rna = umap(rna_plot)
-
-df.rna = data.frame(UMAP1 = umap.res.rna$layout[,1], UMAP2 = umap.res.rna$layout[,2], name = rownames(umap.res.rna$layout),  grupa =  factor(clustering$cluster[match(rownames(umap.res.rna$layout), names(clustering$cluster))]))
-
-p1 = ggplot() +
-    geom_point(data = df.rna, aes(x = UMAP1, y = UMAP2, color = grupa), size = 3)+
-  labs(title=paste0("UMAP na podstawie ", i*100 , "% genów"), x="UMPA1", y = 'UMAP2')+
-  theme_classic() +
-  theme(text = element_text(size = 8), aspect.ratio=1, legend.position="bottom")
-pca = prcomp(rna_plot)
   
-df = data.frame(PC1 = pca$x[,"PC1"], PC2 = pca$x[,"PC2"],
-                type = factor(clustering$cluster[match(rownames(pca$x), names(clustering$cluster))]),
-                name = rownames(pca$x))
-
-p2 = ggplot() +
-    geom_point(data = df, aes(x = PC1, y = PC2, color = type), size = 3)+
-  labs(title = paste0("PCA na podstawie ", i*100 , "% genów"),
-       x = paste0("PC1: ",round(summary(pca)$importance[2,][1]*100), "%"),
-       y = paste0("PC2: ",round(summary(pca)$importance[2,][2]*100), "%")) +
-  theme_classic() +
-  theme(text = element_text(size = 8), aspect.ratio=1, legend.position="bottom")
-p <- ggarrange(p1, p2, nrow = 1,  labels = c("A","B"))
-grDevices::cairo_pdf(file="../plots/2d_representation.pdf")
+  df.rna = data.frame(
+    UMAP1 = umap.res.rna$layout[, 1],
+    UMAP2 = umap.res.rna$layout[, 2],
+    name = rownames(umap.res.rna$layout),
+    grupa =  factor(cluster_df$grupa[match(rownames(umap.res.rna$layout), cluster_df$probka)])
+  )
+  
+  p1 = ggplot() +
+    geom_point(data = df.rna,
+               aes(x = UMAP1, y = UMAP2, color = grupa),
+               size = 3) +
+    labs(
+      title = paste0("UMAP na podstawie ", i * 100 , "% genów"),
+      x = "UMPA1",
+      y = 'UMAP2'
+    ) +
+    theme_classic() +
+    theme(
+      text = element_text(size = 8),
+      aspect.ratio = 1,
+      legend.position = "bottom"
+    )
+  plot_list[[paste0("umap", i)]] <- p1
+  pca = prcomp(rna_plot)
+  
+  df = data.frame(
+    PC1 = pca$x[, "PC1"],
+    PC2 = pca$x[, "PC2"],
+    type = factor(cluster_df$grupa[match(rownames(pca$x), cluster_df$probka)]),
+    name = rownames(pca$x)
+  )
+  
+  p2 = ggplot() +
+    geom_point(data = df,
+               aes(x = PC1, y = PC2, color = type),
+               size = 3) +
+    labs(
+      title = paste0("PCA na podstawie ", i * 100 , "% genów"),
+      x = paste0("PC1: ", round(summary(pca)$importance[2,][1] * 100), "%"),
+      y = paste0("PC2: ", round(summary(pca)$importance[2,][2] * 100), "%")
+    ) +
+    theme_classic() +
+    theme(
+      text = element_text(size = 8),
+      aspect.ratio = 1,
+      legend.position = "bottom"
+    )
+  plot_list[[paste0("pca", i)]] <- p2
+}
+p <- ggarrange(
+  plot_list[["umap0.25"]],
+  plot_list[["pca0.25"]],
+  plot_list[["umap0.5"]],
+  plot_list[["pca0.5"]],
+  plot_list[["umap0.75"]],
+  plot_list[["pca0.75"]],
+  plot_list[["umap1"]],
+  plot_list[["pca1"]],
+  nrow = 3, ncol=3,
+  labels = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J"), common.legend = TRUE, legend="right"
+)
+grDevices::cairo_pdf(file = paste0("../plots/2d_representation_sup.pdf"))
 p
 dev.off()
-}
 ```
 
 

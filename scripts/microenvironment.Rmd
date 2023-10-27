@@ -15,6 +15,7 @@ library(immunedeconv)
 library(biomaRt)
 library(dplyr)
 library(tidyr)
+library(ggplot2)
 library(reshape2)
 ```
 
@@ -64,19 +65,27 @@ Saving results as plot:
 epic_df <- read.csv('../results/epic_res_p_val.csv')
 colnames(epic_df)<-gsub("X","",colnames(epic_df))
 epic_df <- epic_df[,c('cell_type',coldata$samp_id)]
-epic_df <- epic_df[1:7,]
+# epic_df <- epic_df[1:7,]
 epic_df <- melt(epic_df)
 colnames(epic_df) <- c('cell_type', 'samp_id', 'value')
+epic_df$cell_type <- factor(epic_df$cell_type, levels = c("B cell", "T cell CD4+","T cell CD8+", "Endothelial cell",  "Macrophage","Cancer associated fibroblast","NK cell", "uncharacterized cell" ))
 epic_df <- merge(epic_df, coldata, by='samp_id')
 colnames(epic_df)[colnames(epic_df) == 'artykul'] <- 'Cluster'
-head(epic_df)
-p <- ggplot(epic_df, aes(x=samp_id,
-             y=cell_type,
-             color=Cluster,
-             size=value)) +
-  geom_point() + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-ggsave(file="../plots/immuno.pdf", width = 30, height = 10, units = "cm")
+epic_df$value <- epic_df$value*100
 ```
+
+```{r}
+p <- ggplot(epic_df, aes(x=Cluster, y=value, fill=Cluster)) + 
+  geom_violin()+ geom_dotplot(binaxis='y', stackdir='center', dotsize=1, fill = "black", alpha=0.5)+
+  theme_classic() + theme(legend.position="bottom", text = element_text(size = 8), aspect.ratio=1) +
+  facet_wrap(~cell_type, scales = "free")
+pdf("../plots/immuno.pdf")
+p
+dev.off()
+```
+
+
+
 
 ```{r}
 cell_type_p_val <- epic_df[,c(51:58)]
