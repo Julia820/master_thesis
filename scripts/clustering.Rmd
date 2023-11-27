@@ -15,6 +15,7 @@ library(ggplot2)
 library(dendextend)
 library(egg)
 library(ggpubr)
+library(vsn)
 set.seed(0)
 ```
 
@@ -25,14 +26,14 @@ load(file = "../results/dds.RData")
 
 ```{r}
 raw_plot <- meanSdPlot(assay(dds))$gg +
-  labs(title="Surowe dane", y="SD (10 tys.)", x = "ranga(średniej)") +
+  labs(title="Surowe dane", y="odchylenie standardowe (10 tys.)", x = "ranga (średniej)") +
   theme_classic() +
   theme(text = element_text(size = 8), aspect.ratio=1, legend.key.height = unit(0.25, 'cm'),
         legend.key.width = unit(0.25, 'cm'),) +
   scale_x_continuous(breaks = c(0, 7500, 15000), 
                      labels = c(0, 7500, 15000))+
   scale_y_continuous(breaks = c(0, 50000, 100000), 
-                     labels = c(0, 5, 10))
+                     labels = c(0, 5, 10)) + labs(fill='zliczenia') 
 ```
 
 
@@ -40,32 +41,48 @@ raw_plot <- meanSdPlot(assay(dds))$gg +
 ntd <- normTransform(dds)
 vsd <- vst(dds, blind=TRUE)
 rld <- rlog(dds, blind=TRUE)
-ntd_plot <- meanSdPlot(assay(ntd))$gg +
-  labs(title="Trandofrmacja\nlogarytmiczna", y="SD", x = "ranga(średniej)")+
-  theme_classic() +
-  theme(text = element_text(size = 8), aspect.ratio=1, legend.key.height = unit(0.25, 'cm'),
-        legend.key.width = unit(0.25, 'cm'),) +
-  scale_x_continuous(breaks = c(0, 7500, 15000), 
-                     labels = c(0, 7500, 15000))
-vsd_plot <- meanSdPlot(assay(vsd))$gg +
-  labs(title="VST", y="SD", x = "ranga(średniej)")+
-  theme_classic() +
-  theme(text = element_text(size = 8), aspect.ratio=1, legend.key.height = unit(0.25, 'cm'),
-        legend.key.width = unit(0.25, 'cm'),) +
-  scale_x_continuous(breaks = c(0, 7500, 15000), 
-                     labels = c(0, 7500, 15000))
-rld_plot <- meanSdPlot(assay(rld))$gg +
-  labs(title="Trandofrmacja\nlogarytmem\nregularyzowanym", y="SD", x = "ranga(średniej)")+
-  theme_classic() +
-  theme(text = element_text(size = 8), aspect.ratio=1, legend.key.height = unit(0.25, 'cm'),
-        legend.key.width = unit(0.25, 'cm'),) +
-  scale_x_continuous(breaks = c(0, 7500, 15000), 
-                     labels = c(0, 7500, 15000))
 ```
 
 
 ```{r}
-p <- ggarrange(raw_plot, ntd_plot, vsd_plot, rld_plot, nrow = 2,  labels = c("A","B", "C", "D"))
+ntd_plot <- meanSdPlot(assay(ntd))$gg +
+  labs(title="Transformacja\nlogarytmiczna", y="odchylenie standardowe", x = "ranga (średniej)")+
+  theme_classic() +
+  theme(text = element_text(size = 8), aspect.ratio=1, legend.key.height = unit(0.25, 'cm'),
+        legend.key.width = unit(0.25, 'cm'),) +
+  scale_x_continuous(breaks = c(0, 7500, 15000), 
+                     labels = c(0, 7500, 15000))+
+  scale_y_continuous(breaks = c(0, 2,4,6), 
+                     labels = c(0,2,4,6)) 
+
+vsd_plot <- meanSdPlot(assay(vsd))$gg +
+  labs(title = "VST", y = "odchylenie standardowe", x = "ranga (średniej)") +
+  theme_classic() +
+  theme(
+    text = element_text(size = 8),
+    aspect.ratio = 1,
+    legend.key.height = unit(0.25, 'cm'),
+    legend.key.width = unit(0.25, 'cm'),
+  ) +
+  scale_x_continuous(breaks = c(0, 7500, 15000),
+                     labels = c(0, 7500, 15000)) +
+  scale_y_continuous(breaks = c(0, 2, 4, 6),
+                     labels = c(0, 2, 4, 6), limits = c(0,6)) 
+
+rld_plot <- meanSdPlot(assay(rld))$gg +
+  labs(title="Transformacja\nlogarytmem\nregularyzowanym", y="odchylenie standardowe", x = "ranga (średniej)")+
+  theme_classic() +
+  theme(text = element_text(size = 8), aspect.ratio=1, legend.key.height = unit(0.25, 'cm'),
+        legend.key.width = unit(0.25, 'cm'),) +
+  scale_x_continuous(breaks = c(0, 7500, 15000), 
+                     labels = c(0, 7500, 15000))+
+  scale_y_continuous(breaks = c(0, 2,4,6), 
+                     labels = c(0, 2,4,6))
+```
+
+
+```{r}
+p <- ggarrange(raw_plot, ntd_plot, vsd_plot, rld_plot,  labels = c("A","B", "C", "D"))
 grDevices::cairo_pdf(file="../plots/transformation.pdf")
 p
 dev.off()

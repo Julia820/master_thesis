@@ -19,7 +19,7 @@ library(ggpubr)
 ```{r}
 count_qc <- read.csv("../data/counta_all_out.summary")
 rownames(count_qc) <- count_qc$Status
-count_qc_t <- transpose(count_qc)
+count_qc_t <- t(count_qc)
 rownames(count_qc_t) <- colnames(count_qc)
 colnames(count_qc_t) <- rownames(count_qc)
 count_qc_t <- count_qc_t[row.names(count_qc_t) != "Status",]

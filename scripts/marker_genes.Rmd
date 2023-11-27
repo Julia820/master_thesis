@@ -270,9 +270,7 @@ classes_pl[classes_pl=="Cluster_2"] <- "Grupa 2"
 classes_pl[classes_pl=="Cluster_3"] <- "Grupa 3"
 markers <- data.frame(NR5A1=rna['ENSG00000136931', ], EEIG1=rna['ENSG00000167106', ], ARHGEF10L=rna['ENSG00000074964',], cluster=classes_pl)
 fig <- plot_ly(data = markers, x = ~EEIG1, y = ~ARHGEF10L, z = ~NR5A1, color=~cluster, type="scatter3d")
-
 fig
-
 ```
 
 
